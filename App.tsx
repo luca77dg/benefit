@@ -12,8 +12,9 @@ const App: React.FC = () => {
   const [spese, setSpese] = useState<Spesa[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list' | 'ai'>('dashboard');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingSpesaId, setEditingSpesaId] = useState<string | null>(null);
 
-  const [newExpense, setNewExpense] = useState<NewSpesa>({
+  const [formState, setFormState] = useState<NewSpesa>({
     utente: 'Luca',
     tipologia: 'Spesa',
     importo: 0,
@@ -30,10 +31,44 @@ const App: React.FC = () => {
     setSpese(data);
   };
 
-  const handleAddExpense = async (expense: NewSpesa) => {
-    await db.addSpesa(expense);
+  const handleOpenAdd = () => {
+    setEditingSpesaId(null);
+    setFormState({
+      utente: 'Luca',
+      tipologia: 'Spesa',
+      importo: 0,
+      data: new Date().toISOString().split('T')[0],
+      note: ''
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEdit = (spesa: Spesa) => {
+    setEditingSpesaId(spesa.id);
+    setFormState({
+      utente: spesa.utente,
+      tipologia: spesa.tipologia,
+      importo: spesa.importo,
+      data: spesa.data,
+      note: spesa.note || ''
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingSpesaId) {
+      await db.updateSpesa(editingSpesaId, formState);
+    } else {
+      await db.addSpesa(formState);
+    }
     await loadData();
     setIsFormOpen(false);
+  };
+
+  const handleAddFromSmartEntry = async (expense: NewSpesa) => {
+    await db.addSpesa(expense);
+    await loadData();
   };
 
   const handleDeleteExpense = async (id: string) => {
@@ -44,7 +79,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0">
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0 font-['Inter']">
       {/* Sidebar Navigation (Desktop only) */}
       <nav className="hidden md:flex w-64 bg-white border-r border-slate-200 p-6 flex-col sticky top-0 h-screen z-10">
         <div className="flex items-center gap-3 mb-10">
@@ -66,7 +101,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <button onClick={() => setIsFormOpen(true)} className="mt-auto bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-xl">
+        <button onClick={handleOpenAdd} className="mt-auto bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-xl">
           <Plus className="w-5 h-5" /> Registra Spesa
         </button>
       </nav>
@@ -100,7 +135,7 @@ const App: React.FC = () => {
           
           {/* Mobile Fast Action Button */}
           <button 
-            onClick={() => setIsFormOpen(true)}
+            onClick={handleOpenAdd}
             className="md:hidden bg-indigo-600 text-white p-3 rounded-2xl shadow-lg shadow-indigo-100 active:scale-90 transition-transform"
           >
             <Plus className="w-6 h-6" />
@@ -111,17 +146,17 @@ const App: React.FC = () => {
         <div className="pb-8">
           {activeTab === 'dashboard' && (
             <div className="space-y-6 md:space-y-8">
-              <SmartEntry onAdd={handleAddExpense} />
+              <SmartEntry onAdd={handleAddFromSmartEntry} />
               <Dashboard spese={spese} />
             </div>
           )}
           {activeTab === 'list' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-white p-3 md:p-4 rounded-xl border border-slate-100 shadow-sm">
-                <span className="text-xs font-bold text-slate-500">{spese.length} Operazioni</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{spese.length} Operazioni</span>
                 <Sparkles className="w-4 h-4 text-indigo-300" />
               </div>
-              <ExpenseList spese={spese} onDelete={handleDeleteExpense} />
+              <ExpenseList spese={spese} onDelete={handleDeleteExpense} onEdit={handleOpenEdit} />
             </div>
           )}
           {activeTab === 'ai' && (
@@ -158,13 +193,15 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white rounded-t-[32px] md:rounded-[32px] w-full max-w-md p-8 md:p-10 shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in-95 duration-300">
             <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-8 md:hidden"></div>
-            <h3 className="text-xl md:text-2xl font-black mb-6 text-slate-800 tracking-tight">Nuova Spesa</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddExpense(newExpense); }} className="space-y-5">
+            <h3 className="text-xl md:text-2xl font-black mb-6 text-slate-800 tracking-tight">
+              {editingSpesaId ? 'Modifica Spesa' : 'Nuova Spesa'}
+            </h3>
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Chi?</label>
                   <select className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all appearance-none"
-                    value={newExpense.utente} onChange={(e) => setNewExpense({...newExpense, utente: e.target.value as any})}>
+                    value={formState.utente} onChange={(e) => setFormState({...formState, utente: e.target.value as any})}>
                     <option value="Luca">Luca</option>
                     <option value="Federica">Federica</option>
                   </select>
@@ -172,7 +209,7 @@ const App: React.FC = () => {
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Cosa?</label>
                   <select className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all appearance-none"
-                    value={newExpense.tipologia} onChange={(e) => setNewExpense({...newExpense, tipologia: e.target.value as any})}>
+                    value={formState.tipologia} onChange={(e) => setFormState({...formState, tipologia: e.target.value as any})}>
                     <option value="Spesa">Spesa</option>
                     <option value="Welfare">Welfare</option>
                     <option value="Benzina">Benzina</option>
@@ -184,14 +221,14 @@ const App: React.FC = () => {
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Importo (€)</label>
                 <input type="number" step="0.01" required placeholder="0.00"
                   className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 font-black text-slate-700 text-3xl outline-none focus:border-indigo-500 transition-all"
-                  value={newExpense.importo || ''} onChange={(e) => setNewExpense({...newExpense, importo: parseFloat(e.target.value)})} />
+                  value={formState.importo || ''} onChange={(e) => setFormState({...formState, importo: parseFloat(e.target.value)})} />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Data</label>
                 <input type="date" required
                   className="w-full bg-slate-50 border-2 border-transparent rounded-2xl p-4 font-bold text-slate-700 outline-none focus:border-indigo-500 transition-all"
-                  value={newExpense.data} onChange={(e) => setNewExpense({...newExpense, data: e.target.value})} />
+                  value={formState.data} onChange={(e) => setFormState({...formState, data: e.target.value})} />
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -199,7 +236,7 @@ const App: React.FC = () => {
                   Chiudi
                 </button>
                 <button type="submit" className="flex-2 bg-indigo-600 text-white p-4 rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-95 transition-all">
-                  Salva
+                  {editingSpesaId ? 'Aggiorna' : 'Salva'}
                 </button>
               </div>
             </form>

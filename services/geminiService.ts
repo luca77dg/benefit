@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Spesa, NewSpesa, AppSettings } from "../types";
 
 export const aiService = {
@@ -61,7 +61,7 @@ export const aiService = {
     try {
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
+        model: 'gemini-3-flash-preview',
         contents: `Dati: ${JSON.stringify(history)}. Domanda: ${query}`,
         config: {
           systemInstruction: "Sei un analista finanziario amichevole. Rispondi in italiano in modo sintetico e basandoti esclusivamente sui dati forniti."
@@ -71,6 +71,35 @@ export const aiService = {
       return response.text || "Impossibile generare l'analisi.";
     } catch (error: any) {
       return `Errore: ${error.message}`;
+    }
+  },
+
+  /**
+   * TTS: Trasforma il testo in audio parlato.
+   */
+  generateSpeech: async (text: string): Promise<string | undefined> => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey || apiKey === "undefined") return undefined;
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: `Dillo con tono professionale e rassicurante: ${text}` }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore ha un tono chiaro ed equilibrato
+            },
+          },
+        },
+      });
+
+      return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    } catch (error) {
+      console.error("TTS Error:", error);
+      return undefined;
     }
   }
 };

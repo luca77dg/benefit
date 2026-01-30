@@ -2,20 +2,31 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Spesa, NewSpesa } from "../types";
 
+// Funzione helper per recuperare la chiave API in modo robusto
+const getApiKey = () => {
+  return process.env.API_KEY || (process.env as any).VITE_API_KEY || "";
+};
+
 export const aiService = {
   /**
    * Smart Entry: Analizza il linguaggio naturale per creare un oggetto spesa.
    */
   parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
+    const key = getApiKey();
+    
+    if (!key) {
+      console.error("API Key mancante nel sistema.");
+      throw new Error("CHIAVE_MANCANTE");
+    }
+
     try {
-      // Inizializziamo l'istanza con la chiave corrente iniettata dall'ambiente
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      const ai = new GoogleGenAI({ apiKey: key });
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Estrai i dati di spesa da: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
+        contents: `Analizza questa operazione di spesa: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
         config: {
-          systemInstruction: "Sei un estrattore di dati. Rispondi solo in JSON con campi: utente (Luca/Federica), tipologia (Spesa/Welfare/Benzina), importo (numero), data (YYYY-MM-DD), note. Se l'utente non è specificato, lascia null.",
+          systemInstruction: "Estrai dati in JSON: utente (Luca/Federica), tipologia (Spesa/Welfare/Benzina), importo (numero), data (YYYY-MM-DD), note.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -31,22 +42,23 @@ export const aiService = {
         }
       });
 
-      if (!response.text) {
-        throw new Error("La risposta dell'IA è vuota.");
-      }
-
-      return JSON.parse(response.text.trim());
+      const text = response.text;
+      if (!text) throw new Error("Risposta vuota");
+      return JSON.parse(text.trim());
     } catch (error: any) {
-      console.error("AI Error:", error);
-      // Trasmettiamo il messaggio d'errore specifico per il debug nell'interfaccia
-      const errorMsg = error.message || "Errore sconosciuto";
-      if (errorMsg.includes("404") || errorMsg.includes("not found")) {
-        throw new Error("MODELLO_NON_TROVATO");
-      }
-      if (errorMsg.includes("401") || errorMsg.includes("API key")) {
+      console.error("Dettaglio Errore AI:", error);
+      const msg = error.message?.toLowerCase() || "";
+      
+      if (msg.includes("401") || msg.includes("api key not valid") || msg.includes("invalid")) {
         throw new Error("CHIAVE_NON_VALIDA");
       }
-      throw new Error(errorMsg);
+      if (msg.includes("404") || msg.includes("not found")) {
+        throw new Error("MODELLO_NON_DISPONIBILE");
+      }
+      if (msg.includes("fetch") || msg.includes("network")) {
+        throw new Error("ERRORE_RETE");
+      }
+      throw new Error(error.message || "ERRORE_GENERICO");
     }
   },
 
@@ -54,22 +66,23 @@ export const aiService = {
    * AI Assistant: Analisi dati storici.
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-      const dataStr = JSON.stringify(history);
+    const key = getApiKey();
+    if (!key) return "Configura la chiave API per usare l'assistente.";
 
+    try {
+      const ai = new GoogleGenAI({ apiKey: key });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Analizza questi dati: ${dataStr}. Rispondi alla domanda: ${query}`,
+        contents: `Dati: ${JSON.stringify(history)}. Domanda: ${query}`,
         config: {
-          systemInstruction: "Sei un assistente per una coppia (Luca e Federica). Sii breve, usa emoji e rispondi in italiano."
+          systemInstruction: "Sei un assistente per la gestione spese di Luca e Federica. Rispondi in modo conciso e amichevole."
         }
       });
 
-      return response.text || "Non ho potuto generare un'analisi.";
+      return response.text || "Non ho potuto elaborare un'analisi.";
     } catch (error: any) {
-      console.error("AI Analysis Error:", error);
-      return `Errore nell'analisi: ${error.message}`;
+      console.error("Analysis Error:", error);
+      return `Errore tecnico: ${error.message}`;
     }
   }
 };

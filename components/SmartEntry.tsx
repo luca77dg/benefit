@@ -1,5 +1,5 @@
 
-import { Sparkles, Loader2, Mic, MicOff, X, Key, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, Mic, MicOff, X, Key, AlertCircle, RefreshCw } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { aiService } from '../services/geminiService';
 import { NewSpesa, Utente } from '../types';
@@ -13,7 +13,7 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [preview, setPreview] = useState<Partial<NewSpesa> | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<'NONE' | 'MISSING_KEY' | 'INVALID_KEY' | 'MODEL_ERROR' | 'NETWORK' | 'GENERIC'>('NONE');
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -21,11 +21,8 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
       recognition.lang = 'it-IT';
-      recognition.continuous = false;
-      recognition.interimResults = false;
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
       recognition.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setInput(transcript);
@@ -35,44 +32,37 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
     }
   }, []);
 
-  const toggleListening = () => {
-    setErrorMessage(null);
-    if (isListening) recognitionRef.current?.stop();
-    else recognitionRef.current?.start();
-  };
-
   const handleOpenKey = async () => {
     try {
       // @ts-ignore
-      if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+      if (window.aistudio) {
         // @ts-ignore
         await window.aistudio.openSelectKey();
+        setErrorStatus('NONE');
+        alert("Chiave selezionata. Ora riprova a inviare il comando.");
       } else {
-        setErrorMessage("Il selettore chiavi è disponibile solo nell'ambiente AI Studio.");
+        alert("Selettore non disponibile. Assicurati di essere nell'ambiente corretto.");
       }
     } catch (e) {
-      setErrorMessage("Impossibile aprire il selettore chiavi.");
+      console.error(e);
     }
   };
 
   const handleMagicAnalysis = async (textToParse: string) => {
-    const trimmedInput = textToParse.trim();
-    if (!trimmedInput) return;
-    
+    if (!textToParse.trim()) return;
     setIsLoading(true);
-    setErrorMessage(null);
+    setErrorStatus('NONE');
     
     try {
-      const result = await aiService.parseSmartEntry(trimmedInput);
-      if (result) {
-        setPreview(result);
-      }
+      const result = await aiService.parseSmartEntry(textToParse);
+      if (result) setPreview(result);
     } catch (error: any) {
-      if (error.message === "MODELLO_NON_TROVATO" || error.message === "CHIAVE_NON_VALIDA") {
-        setErrorMessage("Configurazione API necessaria. Clicca l'icona della chiave.");
-      } else {
-        setErrorMessage(`Errore: ${error.message}`);
-      }
+      console.error("Catch in Component:", error.message);
+      if (error.message === "CHIAVE_MANCANTE") setErrorStatus('MISSING_KEY');
+      else if (error.message === "CHIAVE_NON_VALIDA") setErrorStatus('INVALID_KEY');
+      else if (error.message === "MODELLO_NON_DISPONIBILE") setErrorStatus('MODEL_ERROR');
+      else if (error.message === "ERRORE_RETE") setErrorStatus('NETWORK');
+      else setErrorStatus('GENERIC');
     } finally {
       setIsLoading(false);
     }
@@ -87,98 +77,104 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-5 md:p-6 rounded-3xl shadow-xl shadow-indigo-100 text-white mb-6 border border-white/10 transition-all">
+    <div className="bg-indigo-700 p-5 md:p-6 rounded-3xl shadow-xl text-white mb-6 border border-white/10">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="bg-white/20 p-1.5 rounded-lg">
-            <Sparkles className="w-4 h-4 text-yellow-300" />
-          </div>
-          <h3 className="font-black text-sm uppercase tracking-widest">Smart Entry IA</h3>
+          <Sparkles className="w-4 h-4 text-yellow-300" />
+          <h3 className="font-black text-xs uppercase tracking-widest">Inserimento Vocale / Smart</h3>
         </div>
-        <div className="flex items-center gap-3">
-          {isListening && (
-            <div className="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1.5 bg-red-500/20 px-2 py-1 rounded-full border border-red-500/30">
-              <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div> In ascolto
-            </div>
-          )}
-          <button 
-            onClick={handleOpenKey}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-90 flex items-center gap-2 border border-white/5"
-            title="Configura Chiave API"
-          >
-            <Key className="w-4 h-4" />
-            <span className="text-[10px] font-bold hidden sm:inline">Configura API</span>
-          </button>
-        </div>
+        <button 
+          onClick={handleOpenKey}
+          className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl transition-all border border-white/10"
+        >
+          <Key className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-bold uppercase tracking-tight">Imposta Chiave</span>
+        </button>
       </div>
       
-      <div className="relative group">
+      <div className="relative">
         <input
-          type="text" value={input} onChange={(e) => { setInput(e.target.value); setErrorMessage(null); }}
-          placeholder='Es: "Spesa Esselunga 45€ Luca"'
-          className="w-full bg-white/15 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all pr-24 text-sm md:text-base font-medium shadow-inner"
+          type="text" value={input} onChange={(e) => { setInput(e.target.value); setErrorStatus('NONE'); }}
+          placeholder='Es: "50 euro benzina Luca"'
+          className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-white/40 pr-24"
           onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleMagicAnalysis(input)}
         />
         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          <button onClick={toggleListening} className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 shadow-lg' : 'bg-white/10 hover:bg-white/20'}`}>
+          <button 
+            onClick={() => isListening ? recognitionRef.current?.stop() : recognitionRef.current?.start()}
+            className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 animate-pulse' : 'bg-white/10'}`}
+          >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
           <button 
             onClick={() => handleMagicAnalysis(input)} 
-            disabled={isLoading || !input.trim()} 
-            className="bg-white text-indigo-700 p-2.5 rounded-xl shadow-lg active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all"
+            disabled={isLoading || !input.trim()}
+            className="bg-white text-indigo-700 p-2.5 rounded-xl shadow-lg disabled:opacity-50"
           >
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
-      {errorMessage && (
-        <div className="mt-3 flex items-center gap-2 text-red-200 text-[11px] font-bold bg-red-500/20 p-2 rounded-xl border border-red-500/30 animate-in fade-in zoom-in-95 duration-200">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          {errorMessage}
+      {/* Error Messages with Action Buttons */}
+      {errorStatus !== 'NONE' && (
+        <div className="mt-4 p-4 bg-red-500/20 border border-red-500/40 rounded-2xl flex flex-col gap-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-300 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-red-100 uppercase tracking-wide">
+                {errorStatus === 'MISSING_KEY' && "Chiave API Mancante"}
+                {errorStatus === 'INVALID_KEY' && "Chiave API non Valida"}
+                {errorStatus === 'MODEL_ERROR' && "Modello non Abilitato"}
+                {errorStatus === 'NETWORK' && "Errore di Rete"}
+                {errorStatus === 'GENERIC' && "Errore di Connessione"}
+              </p>
+              <p className="text-[11px] text-red-200/80 leading-relaxed mt-1">
+                {errorStatus === 'MISSING_KEY' && "Non hai impostato la chiave API. Usa il tasto sopra per selezionarla."}
+                {errorStatus === 'INVALID_KEY' && "La chiave inserita non è corretta o è scaduta. Prova a riselezionarla."}
+                {errorStatus === 'MODEL_ERROR' && "Il tuo progetto non ha accesso a Gemini 3. Prova a cambiare progetto nel selettore."}
+                {(errorStatus === 'NETWORK' || errorStatus === 'GENERIC') && "Verifica la connessione internet o riprova tra pochi secondi."}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleOpenKey}
+              className="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-lg text-[10px] font-black uppercase transition-all"
+            >
+              Configura Chiave
+            </button>
+            <button 
+              onClick={() => handleMagicAnalysis(input)}
+              className="flex-1 bg-red-500/40 hover:bg-red-500/60 py-2 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+            >
+              <RefreshCw className="w-3 h-3" /> Riprova
+            </button>
+          </div>
         </div>
       )}
 
       {preview && (
-        <div className="mt-4 p-5 bg-white/10 rounded-2xl border border-white/20 animate-in slide-in-from-top-4 duration-300 backdrop-blur-md shadow-2xl">
+        <div className="mt-4 p-5 bg-white/10 rounded-2xl border border-white/20 animate-in fade-in zoom-in-95">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Dati rilevati</span>
-            <button onClick={() => setPreview(null)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-              <X className="w-4 h-4 text-white/50" />
-            </button>
+            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Rilevato</span>
+            <button onClick={() => setPreview(null)}><X className="w-4 h-4 opacity-50" /></button>
           </div>
-          
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="bg-black/20 p-3 rounded-xl border border-white/5">
-              <label className="opacity-50 block text-[8px] font-black uppercase mb-1">Chi</label>
-              <select 
-                value={preview.utente || ''} 
-                onChange={(e) => setPreview({...preview, utente: e.target.value as Utente})} 
-                className="bg-transparent font-bold w-full outline-none text-sm appearance-none cursor-pointer"
-              >
-                <option value="" disabled className="text-slate-800">Scegli</option>
-                <option value="Luca" className="text-slate-800">Luca</option>
-                <option value="Federica" className="text-slate-800">Federica</option>
-              </select>
+          <div className="grid grid-cols-2 gap-3 mb-4 text-sm font-bold">
+            <div className="bg-black/20 p-3 rounded-xl">
+              <span className="block text-[8px] opacity-40 uppercase mb-1">Chi</span>
+              {preview.utente}
             </div>
-            <div className="bg-black/20 p-3 rounded-xl border border-white/5">
-              <label className="opacity-50 block text-[8px] font-black uppercase mb-1">Importo (€)</label>
-              <input 
-                type="number" step="0.01" 
-                value={preview.importo || ''} 
-                onChange={(e) => setPreview({...preview, importo: parseFloat(e.target.value)})} 
-                className="bg-transparent font-bold w-full outline-none text-sm" 
-              />
+            <div className="bg-black/20 p-3 rounded-xl">
+              <span className="block text-[8px] opacity-40 uppercase mb-1">Importo</span>
+              €{preview.importo}
             </div>
           </div>
-          
           <button 
             onClick={confirmAdd}
-            disabled={!preview.utente || !preview.importo || !preview.tipologia}
-            className="w-full bg-white text-indigo-800 py-3.5 rounded-xl text-sm font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-full bg-white text-indigo-700 py-3 rounded-xl font-black text-xs uppercase tracking-widest"
           >
-            Conferma e Salva
+            Conferma Spesa
           </button>
         </div>
       )}

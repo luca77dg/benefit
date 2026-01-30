@@ -4,7 +4,7 @@ import { AppSettings, SupabaseConfig, Spesa } from '../types';
 import { 
   UserPlus, Trash2, CheckCircle2, Pencil, Cloud, Copy, 
   RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
-  AlertTriangle
+  AlertTriangle, Smartphone, Share, Sparkles
 } from 'lucide-react';
 import { db } from '../services/database';
 
@@ -166,6 +166,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
+      
+      {/* 1. Sincronizzazione Cloud */}
       <div className="bg-indigo-900 text-white p-6 md:p-10 rounded-[32px] border border-white/10 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10"><Cloud className="w-32 h-32" /></div>
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-6 flex items-center gap-2">
@@ -185,6 +187,34 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
             <div className="flex-1 flex gap-2">
               <input type="text" placeholder="Incolla codice..." value={syncCode} onChange={(e) => setSyncCode(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs outline-none" />
               <button onClick={importSyncCode} className="bg-indigo-500 px-4 py-3 rounded-xl text-xs font-bold">Importa</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Guida Installazione Smartphone */}
+      <div className="bg-white p-6 md:p-10 rounded-[32px] border border-indigo-100 shadow-sm overflow-hidden relative group">
+        <div className="absolute -right-6 -top-6 text-indigo-50/50 group-hover:scale-110 transition-transform"><Smartphone className="w-32 h-32" /></div>
+        <div className="absolute top-6 right-6 flex items-center gap-1 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest animate-bounce">
+          <Sparkles className="w-3 h-3" /> Icona Attiva
+        </div>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-6 flex items-center gap-2 relative z-10">
+          <Smartphone className="w-4 h-4" /> Usalo come un'App
+        </h3>
+        <div className="space-y-6 relative z-10">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 font-black">1</div>
+            <div>
+              <p className="text-sm font-bold text-slate-800">Su iPhone (Safari)</p>
+              <p className="text-xs text-slate-500 mt-1">Tocca l'icona <Share className="w-3 h-3 inline-block mx-1" /> Condividi e seleziona <strong>"Aggiungi alla schermata Home"</strong>.</p>
+              <p className="text-[10px] text-indigo-500 mt-1 font-medium italic">Verrà creata un'icona BenefitSync professionale.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 font-black">2</div>
+            <div>
+              <p className="text-sm font-bold text-slate-800">Su Android (Chrome)</p>
+              <p className="text-xs text-slate-500 mt-1">Tocca i tre puntini in alto a destra e seleziona <strong>"Installa app"</strong> o <strong>"Aggiungi a home"</strong>.</p>
             </div>
           </div>
         </div>

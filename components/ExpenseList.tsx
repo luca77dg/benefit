@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Spesa } from '../types';
-import { Trash2, ShoppingBag, Zap, Fuel, Calendar, Pencil } from 'lucide-react';
+import { Trash2, ShoppingBag, ShoppingCart, Rocket, Zap, Fuel, Calendar, Pencil, Tag } from 'lucide-react';
 
 interface ExpenseListProps {
   spese: Spesa[];
@@ -14,12 +14,17 @@ const formatCurrency = (value: number) => {
 };
 
 const CategoryIcon = ({ type, className }: { type: string, className?: string }) => {
-  switch (type) {
-    case 'Spesa': return <ShoppingBag className={className} />;
-    case 'Welfare': return <Zap className={className} />;
-    case 'Benzina': return <Fuel className={className} />;
-    default: return null;
+  const t = type.toLowerCase();
+  if (t.includes('spesa') || t.includes('market') || t.includes('cibo') || t.includes('carrello')) {
+    return <ShoppingCart className={className} />;
   }
+  if (t.includes('welfare') || t.includes('bonus') || t.includes('razzo')) {
+    return <Rocket className={className} />;
+  }
+  if (t.includes('benzina') || t.includes('carburante') || t.includes('fuel')) {
+    return <Fuel className={className} />;
+  }
+  return <Tag className={className} />;
 };
 
 export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete, onEdit }) => {
@@ -61,6 +66,9 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete, onEdi
                   <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 uppercase">
                     <Calendar className="w-2.5 h-2.5" /> {new Date(s.data).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
                   </span>
+                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 uppercase bg-slate-50 px-1.5 py-0.5 rounded">
+                    <CategoryIcon type={s.tipologia} className="w-2.5 h-2.5 opacity-60" /> {s.tipologia}
+                  </span>
                 </div>
               </div>
             </div>
@@ -80,7 +88,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete, onEdi
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm text-slate-700 font-medium col-span-1">
-              <CategoryIcon type={s.tipologia} className="w-4 h-4 opacity-50" />
+              <CategoryIcon type={s.tipologia} className="w-4 h-4 text-slate-400" />
               {s.tipologia}
             </div>
             <div className="text-right">

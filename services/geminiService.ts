@@ -8,27 +8,24 @@ export const aiService = {
    */
   parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
     try {
-      // Inizializziamo l'istanza subito prima dell'uso per garantire l'uso della chiave più recente
+      // Inizializziamo l'istanza con la chiave corrente
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Estrai i dati di spesa dalla seguente frase e restituisci ESCLUSIVAMENTE un oggetto JSON valido. 
-        Oggi è il ${new Date().toLocaleDateString('it-IT')}.
-        Frase: "${input}"`,
+        contents: `Estrai i dati di spesa da: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
         config: {
-          systemInstruction: "Sei un estrattore di dati finanziari. Estrai: utente (Luca o Federica), tipologia (Spesa, Welfare o Benzina), importo (numero decimale), data (formato YYYY-MM-DD), note (descrizione breve). Restituisci solo il JSON.",
+          systemInstruction: "Sei un estrattore di dati. Rispondi solo in JSON con campi: utente (Luca/Federica), tipologia (Spesa/Welfare/Benzina), importo (numero), data (YYYY-MM-DD), note. Se l'utente non è specificato, lascia null.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              utente: { type: Type.STRING, enum: ['Luca', 'Federica'] },
-              tipologia: { type: Type.STRING, enum: ['Spesa', 'Welfare', 'Benzina'] },
-              importo: { type: Type.NUMBER },
-              data: { type: Type.STRING },
-              note: { type: Type.STRING }
-            },
-            required: ["tipologia", "importo", "data"]
+              utente: { type: Type.STRING, nullable: true },
+              tipologia: { type: Type.STRING, nullable: true },
+              importo: { type: Type.NUMBER, nullable: true },
+              data: { type: Type.STRING, nullable: true },
+              note: { type: Type.STRING, nullable: true }
+            }
           }
         }
       });
@@ -38,42 +35,37 @@ export const aiService = {
 
       return JSON.parse(text.trim());
     } catch (error: any) {
-      console.error("AI Error Details:", error);
-      
-      // Se l'errore indica che l'entità non è stata trovata, potrebbe essere necessaria la selezione della chiave
-      if (error.message?.includes("Requested entity was not found")) {
+      console.error("AI Error:", error);
+      if (error.message?.toLowerCase().includes("not found") || error.message?.includes("404")) {
         throw new Error("KEY_NOT_FOUND");
       }
-      
       throw error;
     }
   },
 
   /**
-   * AI Assistant: Fornisce analisi basate sui dati esistenti.
+   * AI Assistant: Analisi dati storici.
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const dataSummary = history.map(s => 
-        `${s.data}: ${s.utente} ha speso ${s.importo}€ in ${s.tipologia}${s.note ? ' (' + s.note + ')' : ''}`
-      ).join('\n');
+      const dataStr = JSON.stringify(history);
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Basandoti su questi dati di spesa:\n${dataSummary}\n\nRispondi alla domanda: "${query}"`,
+        contents: `Analizza questi dati: ${dataStr}. Rispondi alla domanda: ${query}`,
         config: {
-          systemInstruction: "Sei un assistente finanziario per Luca e Federica. Rispondi in modo conciso e amichevole in italiano."
+          systemInstruction: "Sei un assistente per una coppia. Sii breve e simpatico. Usa i nomi Luca e Federica."
         }
       });
 
-      return response.text || "Non ho potuto generare un'analisi.";
+      return response.text || "Non ho capito, puoi riprovare?";
     } catch (error: any) {
       console.error("AI Analysis Error:", error);
-      if (error.message?.includes("Requested entity was not found")) {
-        return "Errore: Progetto API non trovato. Assicurati di aver selezionato una chiave valida.";
+      if (error.message?.toLowerCase().includes("not found") || error.message?.includes("404")) {
+        throw new Error("KEY_NOT_FOUND");
       }
-      return "Si è verificato un errore durante l'analisi.";
+      return "Errore nell'analisi dei dati.";
     }
   }
 };

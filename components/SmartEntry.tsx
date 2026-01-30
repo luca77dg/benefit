@@ -48,25 +48,32 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
       if (result) {
         setPreview(result);
       } else {
-        alert("Non sono riuscito a interpretare la frase. Prova a essere più specifico (es. 'Luca 10 euro benzina')");
+        alert("Non sono riuscito a interpretare la frase.");
       }
     } catch (error: any) {
       if (error.message === "KEY_NOT_FOUND") {
-        if (confirm("L'API richiede la selezione di un progetto valido. Vuoi selezionare la tua chiave ora?")) {
-          // @ts-ignore
-          if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-            // @ts-ignore
-            window.aistudio.openSelectKey();
-          } else {
-            alert("Funzione di selezione chiave non disponibile in questo ambiente.");
-          }
-        }
+        alert("Chiave API non valida o non configurata per questo modello. Premi l'icona della chiave in alto a destra per configurarla.");
+        // @ts-ignore
+        if (window.aistudio) await window.aistudio.openSelectKey();
       } else {
-        alert("Errore di connessione con l'IA. Riprova tra poco.");
+        alert("Errore di connessione. Riprova.");
       }
-      console.error("Detailed catch:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOpenKey = async () => {
+    try {
+      // @ts-ignore
+      if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+      } else {
+        alert("Questa funzione è disponibile solo nell'ambiente AI Studio.");
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -94,14 +101,11 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
             </div>
           )}
           <button 
-            onClick={async () => {
-              // @ts-ignore
-              if (window.aistudio) window.aistudio.openSelectKey();
-            }}
-            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-            title="Seleziona Chiave API"
+            onClick={handleOpenKey}
+            className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-90"
+            title="Configura Chiave API"
           >
-            <Key className="w-3.5 h-3.5" />
+            <Key className="w-4 h-4" />
           </button>
         </div>
       </div>

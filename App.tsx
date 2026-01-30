@@ -6,12 +6,14 @@ import { Dashboard } from './components/Dashboard';
 import { ExpenseList } from './components/ExpenseList';
 import { SmartEntry } from './components/SmartEntry';
 import { AIAssistant } from './components/AIAssistant';
-import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, Activity, ArrowUpRight, Sparkles } from 'lucide-react';
+import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, ArrowUpRight, Sparkles, Key, AlertCircle, ExternalLink } from 'lucide-react';
 
 const App: React.FC = () => {
   const [spese, setSpese] = useState<Spesa[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list' | 'ai'>('dashboard');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
+
   const [newExpense, setNewExpense] = useState<NewSpesa>({
     utente: 'Luca',
     tipologia: 'Spesa',
@@ -21,8 +23,36 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
+    checkApiKey();
     loadData();
   }, []);
+
+  const checkApiKey = async () => {
+    try {
+      // @ts-ignore
+      if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+        // @ts-ignore
+        const selected = await window.aistudio.hasSelectedApiKey();
+        setHasKey(selected);
+      } else {
+        // Se non siamo nell'ambiente aistudio, assumiamo che la chiave sia presente via env
+        setHasKey(true);
+      }
+    } catch (e) {
+      setHasKey(true);
+    }
+  };
+
+  const handleSelectKey = async () => {
+    try {
+      // @ts-ignore
+      await window.aistudio.openSelectKey();
+      // Come da linee guida, procediamo assumendo successo per evitare race conditions
+      setHasKey(true);
+    } catch (e) {
+      alert("Errore nell'apertura del selettore chiavi.");
+    }
+  };
 
   const loadData = async () => {
     const data = await db.getSpese();
@@ -41,6 +71,37 @@ const App: React.FC = () => {
       await loadData();
     }
   };
+
+  // Schermata di Setup se manca la chiave
+  if (hasKey === false) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white rounded-[32px] p-8 shadow-xl border border-slate-100 text-center">
+          <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-indigo-600">
+            <Key className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Configurazione IA</h2>
+          <p className="text-slate-500 text-sm mb-8 leading-relaxed">
+            Per utilizzare le funzioni intelligenti di <b>BenefitSync</b>, devi collegare il tuo progetto Google Cloud.
+          </p>
+          
+          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-8 flex items-start gap-3 text-left">
+            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-800 leading-relaxed">
+              È richiesto un progetto con <b>Billing abilitato</b>. Consulta la <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline font-bold">documentazione ufficiale</a> per i dettagli.
+            </div>
+          </div>
+
+          <button 
+            onClick={handleSelectKey}
+            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+          >
+            Seleziona Chiave API <ExternalLink className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0">
@@ -150,7 +211,7 @@ const App: React.FC = () => {
         </button>
       </nav>
 
-      {/* Manual Entry Modal (Optimized for Mobile Keyboard) */}
+      {/* Manual Entry Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white rounded-t-[32px] md:rounded-[32px] w-full max-w-md p-8 md:p-10 shadow-2xl animate-in slide-in-from-bottom-full md:zoom-in-95 duration-300">

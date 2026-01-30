@@ -171,7 +171,7 @@ const App: React.FC = () => {
             <AIAssistant spese={spese} />
           )}
           {activeTab === 'settings' && (
-            <Settings settings={settings} onUpdate={handleUpdateSettings} />
+            <Settings settings={settings} onUpdate={handleUpdateSettings} onRefresh={loadData} />
           )}
         </div>
       </main>

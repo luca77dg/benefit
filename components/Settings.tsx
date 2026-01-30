@@ -1,19 +1,25 @@
 
-import React, { useState } from 'react';
-import { AppSettings, SupabaseConfig } from '../types';
-import { UserPlus, Trash2, CheckCircle2, Pencil, Check, X, Wallet2, Cloud, Copy, RefreshCw, Tag, FolderPlus } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { AppSettings, SupabaseConfig, Spesa } from '../types';
+import { 
+  UserPlus, Trash2, CheckCircle2, Pencil, Cloud, Copy, 
+  RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
+  AlertTriangle, FileJson
+} from 'lucide-react';
 import { db } from '../services/database';
 
 interface SettingsProps {
   settings: AppSettings;
   onUpdate: (newSettings: AppSettings) => void;
+  onRefresh: () => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefresh }) => {
   const [newUtente, setNewUtente] = useState('');
   const [newCategoria, setNewCategoria] = useState('');
   const [syncCode, setSyncCode] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [editingUtente, setEditingUtente] = useState<{ original: string, current: string } | null>(null);
   const [editingCategoria, setEditingCategoria] = useState<{ original: string, current: string } | null>(null);
@@ -126,6 +132,59 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
     } catch (e) { alert("Codice non valido."); }
   };
 
+  // LOGICA BACKUP & IMPORT
+  const handleExport = async () => {
+    const spese = await db.getSpese();
+    const backupData = {
+      settings,
+      spese,
+      timestamp: new Date().toISOString(),
+      version: "1.0"
+    };
+    
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `benefitsync_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        if (!data.settings || !data.spese) {
+          throw new Error("Formato file non valido");
+        }
+
+        if (confirm("Attenzione! L'importazione sovrascriverà tutti i dati attuali (spese e impostazioni). Continuare?")) {
+          await db.importAllData(data);
+          alert("Dati importati con successo! L'app verrà aggiornata.");
+          onRefresh(); // Ricarica tutto
+        }
+      } catch (err) {
+        alert("Errore durante l'importazione: assicurati che il file sia un backup valido di BenefitSync.");
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    event.target.value = '';
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
       
@@ -216,6 +275,57 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* 4. Archivio e Backup */}
+      <div className="bg-slate-900 text-white p-6 md:p-10 rounded-[32px] border border-slate-800 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5"><Database className="w-32 h-32" /></div>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
+          <Database className="w-4 h-4" /> Archivio e Backup
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+          <button 
+            onClick={handleExport}
+            className="flex flex-col items-start gap-4 p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all text-left group"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+              <Download className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-sm mb-1">Esporta Dati</p>
+              <p className="text-[10px] text-slate-400 font-medium">Scarica un file JSON con tutte le spese e le configurazioni.</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={handleImportClick}
+            className="flex flex-col items-start gap-4 p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all text-left group"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+              <Upload className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="font-bold text-sm mb-1">Importa Backup</p>
+              <p className="text-[10px] text-slate-400 font-medium">Carica un file JSON per ripristinare i dati (sovrascrive tutto).</p>
+            </div>
+          </button>
+        </div>
+
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          onChange={handleFileChange} 
+          accept=".json" 
+          className="hidden" 
+        />
+
+        <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-[9px] text-amber-200/70 font-medium leading-relaxed uppercase tracking-wider">
+            Consiglio: Effettua un backup settimanale per sicurezza. I dati importati sostituiranno interamente quelli presenti sul dispositivo.
+          </p>
         </div>
       </div>
 

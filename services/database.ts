@@ -72,8 +72,6 @@ export const db = {
   updateSpesa: async (id: string, updates: Partial<Spesa>): Promise<Spesa> => {
     const sb = await getSupabase();
     if (sb) {
-      // Nota: Supabase usa UUID, se l'ID locale non è un UUID, questa operazione potrebbe fallire 
-      // se stiamo mischiando ID generati offline e online.
       await sb.from('spese').update(updates).eq('id', id);
     }
     
@@ -107,6 +105,12 @@ export const db = {
   saveSettings: async (settings: AppSettings): Promise<void> => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     supabaseInstance = null; // Forza la riconnessione con le nuove credenziali
+  },
+
+  importAllData: async (data: { settings: AppSettings, spese: Spesa[] }): Promise<void> => {
+    if (data.settings) localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.settings));
+    if (data.spese) localStorage.setItem(STORAGE_KEY, JSON.stringify(data.spese));
+    supabaseInstance = null;
   },
 
   syncLocalToCloud: async (): Promise<boolean> => {

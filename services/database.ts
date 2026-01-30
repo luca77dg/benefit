@@ -1,8 +1,15 @@
 
-import { Spesa, NewSpesa, Budget } from '../types';
+import { Spesa, NewSpesa, Budget, AppSettings } from '../types';
 
 const STORAGE_KEY = 'benefits_sync_data';
 const BUDGET_KEY = 'benefits_sync_budget';
+const SETTINGS_KEY = 'benefits_sync_settings';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  utenti: ['Luca', 'Federica'],
+  categorie: ['Spesa', 'Welfare', 'Benzina'],
+  saldiIniziali: { 'Luca': 0, 'Federica': 0 }
+};
 
 export const db = {
   getSpese: async (): Promise<Spesa[]> => {
@@ -37,12 +44,24 @@ export const db = {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
   },
 
+  getSettings: async (): Promise<AppSettings> => {
+    const data = localStorage.getItem(SETTINGS_KEY);
+    if (!data) return DEFAULT_SETTINGS;
+    const settings = JSON.parse(data);
+    // Assicuriamoci che saldiIniziali esista sempre
+    if (!settings.saldiIniziali) {
+      settings.saldiIniziali = {};
+      settings.utenti.forEach((u: string) => settings.saldiIniziali[u] = 0);
+    }
+    return settings;
+  },
+
+  saveSettings: async (settings: AppSettings): Promise<void> => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  },
+
   getBudget: async (): Promise<Budget> => {
     const data = localStorage.getItem(BUDGET_KEY);
     return data ? JSON.parse(data) : { Luca: 200, Federica: 200 };
-  },
-
-  setBudget: async (budget: Budget): Promise<void> => {
-    localStorage.setItem(BUDGET_KEY, JSON.stringify(budget));
   }
 };

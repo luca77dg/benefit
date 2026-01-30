@@ -1,31 +1,61 @@
 
 import React, { useMemo } from 'react';
-import { Spesa, Utente } from '../types';
+import { Spesa, Utente, AppSettings } from '../types';
 import { Trophy, TrendingUp, User } from 'lucide-react';
 
 interface DashboardProps {
   spese: Spesa[];
+  settings: AppSettings;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
   const stats = useMemo(() => {
-    const summary = {
-      total: 0,
-      Luca: 0,
-      Federica: 0,
+    // Inizializziamo il summary con i saldi iniziali (buoni già spesi)
+    const summary: Record<string, number> = {
+      total: 0
     };
 
-    spese.forEach(s => {
-      summary.total += s.importo;
-      summary[s.utente] += s.importo;
+    // Prepariamo i totali per ogni utente registrato
+    settings.utenti.forEach(u => {
+      const saldoIniziale = settings.saldiIniziali?.[u] || 0;
+      summary[u] = saldoIniziale;
+      summary.total += saldoIniziale;
     });
 
-    const diff = Math.abs(summary.Luca - summary.Federica);
-    const leader: Utente | 'Parità' = summary.Luca > summary.Federica ? 'Luca' : summary.Federica > summary.Luca ? 'Federica' : 'Parità';
-    const runnerUp: Utente | null = leader === 'Luca' ? 'Federica' : leader === 'Federica' ? 'Luca' : null;
+    // Aggiungiamo le spese registrate
+    spese.forEach(s => {
+      if (summary[s.utente] !== undefined) {
+        summary[s.utente] += s.importo;
+        summary.total += s.importo;
+      }
+    });
 
-    return { ...summary, diff, leader, runnerUp };
-  }, [spese]);
+    // Calcolo del leader (chi ha speso di più inclusi i buoni iniziali)
+    let leader: Utente | 'Parità' = 'Parità';
+    let maxVal = -1;
+    let isTied = false;
+
+    settings.utenti.forEach(u => {
+      if (summary[u] > maxVal) {
+        maxVal = summary[u];
+        leader = u;
+        isTied = false;
+      } else if (summary[u] === maxVal && maxVal > 0) {
+        isTied = true;
+      }
+    });
+
+    if (isTied) leader = 'Parità';
+
+    // Per il confronto, prendiamo i due principali se possibile
+    // In questa app assumiamo spesso Luca e Federica come core
+    const lucaTot = summary['Luca'] || 0;
+    const fedeTot = summary['Federica'] || 0;
+    const diff = Math.abs(lucaTot - fedeTot);
+    const runnerUp = leader === 'Luca' ? 'Federica' : 'Luca';
+
+    return { ...summary, diff, leader, runnerUp, lucaTot, fedeTot };
+  }, [spese, settings]);
 
   return (
     <div className="space-y-4 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -70,11 +100,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
             <div className="mt-3 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden flex">
               <div 
                 className="bg-blue-500 h-full transition-all duration-1000" 
-                style={{ width: `${(stats.Luca / (stats.total || 1)) * 100}%` }}
+                style={{ width: `${(stats.lucaTot / (stats.total || 1)) * 100}%` }}
               />
               <div 
                 className="bg-pink-500 h-full transition-all duration-1000" 
-                style={{ width: `${(stats.Federica / (stats.total || 1)) * 100}%` }}
+                style={{ width: `${(stats.fedeTot / (stats.total || 1)) * 100}%` }}
               />
             </div>
           </div>
@@ -90,7 +120,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
           </div>
           <div>
             <p className="text-blue-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5">Luca</p>
-            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.Luca.toFixed(2)}</p>
+            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.lucaTot.toFixed(2)}</p>
+            {settings.saldiIniziali?.['Luca'] > 0 && (
+              <p className="text-[8px] text-slate-400 font-bold uppercase">(Incl. €{settings.saldiIniziali['Luca']} buoni prec.)</p>
+            )}
           </div>
         </div>
 
@@ -101,7 +134,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
           </div>
           <div>
             <p className="text-pink-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5">Federica</p>
-            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.Federica.toFixed(2)}</p>
+            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.fedeTot.toFixed(2)}</p>
+            {settings.saldiIniziali?.['Federica'] > 0 && (
+              <p className="text-[8px] text-slate-400 font-bold uppercase">(Incl. €{settings.saldiIniziali['Federica']} buoni prec.)</p>
+            )}
           </div>
         </div>
       </div>

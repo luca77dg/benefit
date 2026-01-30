@@ -1,12 +1,12 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Spesa, NewSpesa } from "../types";
+import { Spesa, NewSpesa, AppSettings } from "../types";
 
 export const aiService = {
   /**
    * Smart Entry: Analizza il linguaggio naturale per creare un oggetto spesa.
    */
-  parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
+  parseSmartEntry: async (input: string, settings: AppSettings): Promise<Partial<NewSpesa> | null> => {
     const apiKey = process.env.API_KEY;
     
     if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
@@ -17,12 +17,16 @@ export const aiService = {
     try {
       const ai = new GoogleGenAI({ apiKey });
       
-      // Utilizziamo gemini-flash-latest che è il più compatibile con tutte le API key
       const response = await ai.models.generateContent({
         model: 'gemini-flash-latest',
         contents: `Analizza questa spesa e convertila in JSON: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
         config: {
-          systemInstruction: "Sei un assistente per la gestione spese di coppia. Estrai dati JSON: utente (Luca/Federica), tipologia (Spesa/Welfare/Benzina), importo (numero), data (YYYY-MM-DD), note. Rispondi solo col JSON.",
+          systemInstruction: `Sei un assistente per la gestione spese. 
+          UTENTI VALIDI: ${settings.utenti.join(', ')}. 
+          CATEGORIE VALIDE: ${settings.categorie.join(', ')}. 
+          Estrai dati JSON: utente, tipologia, importo (numero), data (YYYY-MM-DD), note. 
+          Se l'utente non è specificato chiaramente, prova a dedurlo o lascialo nullo. 
+          Rispondi solo col JSON puro.`,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -43,10 +47,6 @@ export const aiService = {
       return JSON.parse(text.trim());
     } catch (error: any) {
       console.error("Gemini Error:", error);
-      const msg = error.message?.toLowerCase() || "";
-      if (msg.includes("401") || msg.includes("api key") || msg.includes("not found")) {
-        throw new Error("CHIAVE_NON_VALIDA");
-      }
       throw new Error("ERRORE_GENERICO");
     }
   },
@@ -64,7 +64,7 @@ export const aiService = {
         model: 'gemini-flash-latest',
         contents: `Dati: ${JSON.stringify(history)}. Domanda: ${query}`,
         config: {
-          systemInstruction: "Sei un analista finanziario amichevole. Rispondi in italiano in modo sintetico."
+          systemInstruction: "Sei un analista finanziario amichevole. Rispondi in italiano in modo sintetico e basandoti esclusivamente sui dati forniti."
         }
       });
 

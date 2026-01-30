@@ -1,6 +1,6 @@
 
-export type Utente = 'Luca' | 'Federica';
-export type Tipologia = 'Spesa' | 'Welfare' | 'Benzina';
+export type Utente = string;
+export type Tipologia = string;
 
 export interface Spesa {
   id: string;
@@ -14,14 +14,12 @@ export interface Spesa {
 
 export type NewSpesa = Omit<Spesa, 'id' | 'creato_il'>;
 
-export interface Budget {
-  Luca: number;
-  Federica: number;
+export interface AppSettings {
+  utenti: string[];
+  categorie: string[];
+  saldiIniziali?: Record<string, number>; // Mappa utente -> importo buoni già spesi
 }
 
-export interface DashboardStats {
-  totalLuca: number;
-  totalFederica: number;
-  byCategoryLuca: Record<Tipologia, number>;
-  byCategoryFederica: Record<Tipologia, number>;
+export interface Budget {
+  [key: string]: number;
 }

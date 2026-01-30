@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { AppSettings, SupabaseConfig } from '../types';
-import { UserPlus, FolderPlus, Trash2, CheckCircle2, Pencil, Check, X, Wallet2, Cloud, Copy, Download, Upload, AlertCircle, RefreshCw } from 'lucide-react';
+import { UserPlus, Trash2, CheckCircle2, Pencil, Check, X, Wallet2, Cloud, Copy, RefreshCw, Tag, FolderPlus } from 'lucide-react';
 import { db } from '../services/database';
 
 interface SettingsProps {
@@ -14,7 +14,6 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
   const [newCategoria, setNewCategoria] = useState('');
   const [syncCode, setSyncCode] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
   
   const [editingUtente, setEditingUtente] = useState<{ original: string, current: string } | null>(null);
   const [editingCategoria, setEditingCategoria] = useState<{ original: string, current: string } | null>(null);
@@ -23,6 +22,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
     settings.supabase || { url: '', key: '', connected: false }
   );
 
+  // LOGICA UTENTI
   const addUtente = () => {
     if (newUtente.trim() && !settings.utenti.includes(newUtente.trim())) {
       const saldi = { ...(settings.saldiIniziali || {}) };
@@ -33,78 +33,10 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
   };
 
   const removeUtente = (name: string) => {
-    if (confirm(`Rimuovere l'utente ${name}?`)) {
+    if (confirm(`Rimuovere l'utente ${name}? Tutte le sue spese rimarranno ma l'utente non sarà più selezionabile.`)) {
       const saldi = { ...(settings.saldiIniziali || {}) };
       delete saldi[name];
       onUpdate({ ...settings, utenti: settings.utenti.filter(u => u !== name), saldiIniziali: saldi });
-    }
-  };
-
-  const handleSaldoChange = (user: string, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    const saldi = { ...(settings.saldiIniziali || {}) };
-    saldi[user] = numValue;
-    onUpdate({ ...settings, saldiIniziali: saldi });
-  };
-
-  const handleConnectSupabase = async () => {
-    setIsSyncing(true);
-    const newSettings = { ...settings, supabase: { ...tempSupabase, connected: true } };
-    await db.saveSettings(newSettings);
-    onUpdate(newSettings);
-    
-    // Prova un caricamento iniziale per verificare la connessione
-    try {
-      await db.getSpese();
-      setShowSyncSuccess(true);
-      setTimeout(() => setShowSyncSuccess(false), 3000);
-    } catch (e) {
-      alert("Errore di connessione a Supabase. Controlla URL e Key.");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const generateSyncCode = () => {
-    const config = {
-      u: settings.supabase?.url,
-      k: settings.supabase?.key,
-      set: {
-        utenti: settings.utenti,
-        categorie: settings.categorie,
-        saldi: settings.saldiIniziali
-      }
-    };
-    const code = btoa(JSON.stringify(config));
-    navigator.clipboard.writeText(code);
-    alert("Codice di sincronizzazione copiato negli appunti!");
-  };
-
-  const importSyncCode = () => {
-    try {
-      const config = JSON.parse(atob(syncCode.trim()));
-      const newSettings: AppSettings = {
-        ...settings,
-        utenti: config.set.utenti,
-        categorie: config.set.categorie,
-        saldiIniziali: config.set.saldi,
-        supabase: { url: config.u, key: config.k, connected: !!config.u }
-      };
-      onUpdate(newSettings);
-      setSyncCode('');
-      alert("Configurazione importata con successo!");
-    } catch (e) {
-      alert("Codice non valido.");
-    }
-  };
-
-  const handleSyncData = async () => {
-    if (confirm("Vuoi caricare tutte le tue spese locali attuali sul cloud?")) {
-      setIsSyncing(true);
-      const success = await db.syncLocalToCloud();
-      setIsSyncing(false);
-      if (success) alert("Dati sincronizzati con successo!");
-      else alert("Errore durante la sincronizzazione.");
     }
   };
 
@@ -122,6 +54,14 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
     }
   };
 
+  const handleSaldoChange = (user: string, value: string) => {
+    const numValue = parseFloat(value) || 0;
+    const saldi = { ...(settings.saldiIniziali || {}) };
+    saldi[user] = numValue;
+    onUpdate({ ...settings, saldiIniziali: saldi });
+  };
+
+  // LOGICA CATEGORIE
   const addCategoria = () => {
     if (newCategoria.trim() && !settings.categorie.includes(newCategoria.trim())) {
       onUpdate({ ...settings, categorie: [...settings.categorie, newCategoria.trim()] });
@@ -129,184 +69,156 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate }) => {
     }
   };
 
+  const removeCategoria = (cat: string) => {
+    if (confirm(`Rimuovere la categoria "${cat}"?`)) {
+      onUpdate({ ...settings, categorie: settings.categorie.filter(c => c !== cat) });
+    }
+  };
+
+  const renameCategoria = () => {
+    if (editingCategoria && editingCategoria.current.trim() && editingCategoria.current !== editingCategoria.original) {
+      const newCats = settings.categorie.map(c => c === editingCategoria.original ? editingCategoria.current.trim() : c);
+      onUpdate({ ...settings, categorie: newCats });
+      setEditingCategoria(null);
+    } else {
+      setEditingCategoria(null);
+    }
+  };
+
+  // CLOUD SYNC
+  const handleConnectSupabase = async () => {
+    setIsSyncing(true);
+    const newSettings = { ...settings, supabase: { ...tempSupabase, connected: true } };
+    await db.saveSettings(newSettings);
+    onUpdate(newSettings);
+    try {
+      await db.getSpese();
+      alert("Database collegato correttamente!");
+    } catch (e) {
+      alert("Errore di connessione a Supabase.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const generateSyncCode = () => {
+    const config = {
+      u: settings.supabase?.url,
+      k: settings.supabase?.key,
+      set: { utenti: settings.utenti, categorie: settings.categorie, saldi: settings.saldiIniziali }
+    };
+    navigator.clipboard.writeText(btoa(JSON.stringify(config)));
+    alert("Codice copiato!");
+  };
+
+  const importSyncCode = () => {
+    try {
+      const config = JSON.parse(atob(syncCode.trim()));
+      onUpdate({
+        ...settings,
+        utenti: config.set.utenti,
+        categorie: config.set.categorie,
+        saldiIniziali: config.set.saldi,
+        supabase: { url: config.u, key: config.k, connected: !!config.u }
+      });
+      setSyncCode('');
+      alert("Configurazione importata!");
+    } catch (e) { alert("Codice non valido."); }
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
       
-      {/* Sincronizzazione Cloud */}
+      {/* 1. Sincronizzazione Cloud */}
       <div className="bg-indigo-900 text-white p-6 md:p-10 rounded-[32px] border border-white/10 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-10">
-          <Cloud className="w-32 h-32" />
-        </div>
-        
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-6 relative z-10 flex items-center gap-2">
-          <Cloud className="w-4 h-4" /> Sincronizzazione Cloud (Supabase)
+        <div className="absolute top-0 right-0 p-8 opacity-10"><Cloud className="w-32 h-32" /></div>
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-6 flex items-center gap-2">
+          <Cloud className="w-4 h-4" /> Sincronizzazione Cloud
         </h3>
-
         <div className="space-y-4 relative z-10">
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-indigo-300/60 uppercase tracking-widest px-1">Supabase URL</label>
-            <input 
-              type="text" 
-              placeholder="https://your-project.supabase.co"
-              value={tempSupabase.url}
-              onChange={(e) => setTempSupabase({...tempSupabase, url: e.target.value})}
-              className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[9px] font-black text-indigo-300/60 uppercase tracking-widest px-1">Anon Key</label>
-            <input 
-              type="password" 
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              value={tempSupabase.key}
-              onChange={(e) => setTempSupabase({...tempSupabase, key: e.target.value})}
-              className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-white/30 transition-all"
-            />
-          </div>
-
+          <input type="text" placeholder="Supabase URL" value={tempSupabase.url} onChange={(e) => setTempSupabase({...tempSupabase, url: e.target.value})}
+            className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-white/30 transition-all" />
+          <input type="password" placeholder="Anon Key" value={tempSupabase.key} onChange={(e) => setTempSupabase({...tempSupabase, key: e.target.value})}
+            className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-white/30 transition-all" />
           <div className="flex flex-wrap gap-3 pt-2">
-            <button 
-              onClick={handleConnectSupabase}
-              disabled={isSyncing}
-              className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
-                settings.supabase?.connected ? 'bg-emerald-500 text-white' : 'bg-white text-indigo-900'
-              }`}
-            >
+            <button onClick={handleConnectSupabase} disabled={isSyncing} className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${settings.supabase?.connected ? 'bg-emerald-500 text-white' : 'bg-white text-indigo-900'}`}>
               {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {settings.supabase?.connected ? 'Database Collegato' : 'Collega Database'}
             </button>
-            
             {settings.supabase?.connected && (
-              <button 
-                onClick={handleSyncData}
-                className="bg-indigo-700 hover:bg-indigo-600 text-white px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-white/10"
-              >
-                Sincronizza Dati Locali
-              </button>
+              <button onClick={() => db.syncLocalToCloud().then(s => alert(s ? "Sincronizzato!" : "Errore"))} className="bg-indigo-700 px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-white/10">Sincronizza Locali</button>
             )}
           </div>
         </div>
-
-        {/* Configurazione Rapida */}
-        <div className="mt-10 pt-8 border-t border-white/10 relative z-10">
-          <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-4 px-1">Configurazione Rapida</h4>
-          <p className="text-[11px] text-indigo-200/60 mb-6 leading-relaxed">
-            Copia il codice di sincronizzazione per configurare un altro dispositivo istantaneamente con gli stessi utenti, categorie e database.
-          </p>
-          
+        <div className="mt-8 pt-8 border-t border-white/10">
           <div className="flex flex-col md:flex-row gap-3">
-            <button 
-              onClick={generateSyncCode}
-              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-5 py-3 rounded-xl text-xs font-bold transition-all"
-            >
-              <Copy className="w-4 h-4" /> Copia Codice
-            </button>
-            
+            <button onClick={generateSyncCode} className="flex items-center gap-2 bg-white/5 border border-white/10 px-5 py-3 rounded-xl text-xs font-bold transition-all"><Copy className="w-4 h-4" /> Copia Config</button>
             <div className="flex-1 flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Incolla codice qui..."
-                value={syncCode}
-                onChange={(e) => setSyncCode(e.target.value)}
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-white/20"
-              />
-              <button 
-                onClick={importSyncCode}
-                className="bg-indigo-500 text-white px-4 py-3 rounded-xl text-xs font-bold hover:bg-indigo-400 transition-all"
-              >
-                Importa
-              </button>
+              <input type="text" placeholder="Incolla codice..." value={syncCode} onChange={(e) => setSyncCode(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs outline-none" />
+              <button onClick={importSyncCode} className="bg-indigo-500 px-4 py-3 rounded-xl text-xs font-bold">Importa</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Gestione Utenti */}
+      {/* 2. Gestione Utenti */}
       <div className="bg-white/50 backdrop-blur-md p-6 md:p-10 rounded-[32px] border border-white shadow-sm">
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 px-1">Gestione Utenti</h3>
-        
-        <div className="relative mb-8">
-          <input 
-            type="text" 
-            value={newUtente}
-            onChange={(e) => setNewUtente(e.target.value)}
-            placeholder="Aggiungi utente"
-            className="w-full bg-slate-100/50 border border-slate-200/50 rounded-2xl px-6 py-4 font-medium text-slate-700 placeholder:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all pr-16"
-            onKeyDown={(e) => e.key === 'Enter' && addUtente()}
-          />
-          <button 
-            onClick={addUtente}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2.5 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
-          >
-            <UserPlus className="w-5 h-5" />
-          </button>
+        <div className="relative mb-6">
+          <input type="text" value={newUtente} onChange={(e) => setNewUtente(e.target.value)} placeholder="Aggiungi utente..." onKeyDown={(e) => e.key === 'Enter' && addUtente()}
+            className="w-full bg-slate-100/50 border border-slate-200/50 rounded-2xl px-6 py-4 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all pr-16" />
+          <button onClick={addUtente} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2.5 rounded-xl shadow-lg"><UserPlus className="w-5 h-5" /></button>
         </div>
-
-        <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-3">
           {settings.utenti.map(u => (
-            <div key={u} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-sm group hover:shadow-md transition-all gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center font-black text-[10px] ${
-                  u === 'Luca' ? 'bg-blue-100 text-blue-600' : u === 'Federica' ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-400'
-                }`}>
-                  {u[0].toUpperCase()}
-                </div>
-                
+            <div key={u} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 group shadow-sm">
+              <div className="flex items-center gap-3 flex-1">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] ${u === 'Luca' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}>{u[0]}</div>
                 {editingUtente?.original === u ? (
-                  <input 
-                    autoFocus
-                    className="font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-md w-full outline-none focus:ring-1 focus:ring-indigo-500"
-                    value={editingUtente.current}
-                    onChange={(e) => setEditingUtente({...editingUtente, current: e.target.value})}
-                    onKeyDown={(e) => e.key === 'Enter' && renameUtente()}
-                    onBlur={renameUtente}
-                  />
-                ) : (
-                  <span className="font-bold text-slate-700 tracking-tight truncate">{u}</span>
-                )}
+                  <input autoFocus value={editingUtente.current} onChange={(e) => setEditingUtente({...editingUtente, current: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && renameUtente()} onBlur={renameUtente} className="font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded outline-none w-full" />
+                ) : <span className="font-bold text-slate-700">{u}</span>}
               </div>
-
-              <div className="flex items-center gap-3 bg-slate-50 px-3 py-2 rounded-xl">
-                <Wallet2 className="w-3.5 h-3.5 text-slate-400" />
-                <div className="flex flex-col">
-                   <span className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Buoni già spesi</span>
-                   <input 
-                     type="number"
-                     step="0.01"
-                     placeholder="0.00"
-                     value={settings.saldiIniziali?.[u] || ''}
-                     onChange={(e) => handleSaldoChange(u, e.target.value)}
-                     className="bg-transparent font-bold text-slate-600 outline-none w-20 text-xs"
-                   />
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-end px-3 py-1 bg-slate-50 rounded-lg">
+                  <span className="text-[7px] font-black uppercase text-slate-400">Già spesi</span>
+                  <input type="number" step="0.01" value={settings.saldiIniziali?.[u] || ''} onChange={(e) => handleSaldoChange(u, e.target.value)} className="bg-transparent font-bold text-slate-600 outline-none w-16 text-right text-xs" />
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-1 self-end md:self-auto">
-                {editingUtente?.original === u ? (
-                  <button onClick={renameUtente} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all">
-                    <Check className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <>
-                    <button 
-                      onClick={() => setEditingUtente({ original: u, current: u })}
-                      className="p-2 text-slate-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100 hover:bg-indigo-50 rounded-xl transition-all"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
-                      onClick={() => removeUtente(u)} 
-                      className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded-xl transition-all"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </>
-                )}
+                <div className="flex gap-1">
+                  <button onClick={() => setEditingUtente({ original: u, current: u })} className="p-2 text-slate-300 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => removeUtente(u)} className="p-2 text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* 3. Gestione Categorie */}
+      <div className="bg-white/50 backdrop-blur-md p-6 md:p-10 rounded-[32px] border border-white shadow-sm">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 px-1">Gestione Categorie</h3>
+        <div className="relative mb-6">
+          <input type="text" value={newCategoria} onChange={(e) => setNewCategoria(e.target.value)} placeholder="Aggiungi categoria (es. Amazon, Sport)..." onKeyDown={(e) => e.key === 'Enter' && addCategoria()}
+            className="w-full bg-slate-100/50 border border-slate-200/50 rounded-2xl px-6 py-4 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all pr-16" />
+          <button onClick={addCategoria} className="absolute right-2 top-1/2 -translate-y-1/2 bg-emerald-600 text-white p-2.5 rounded-xl shadow-lg"><FolderPlus className="w-5 h-5" /></button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {settings.categorie.map(c => (
+            <div key={c} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 group shadow-sm">
+              <div className="flex items-center gap-3 flex-1">
+                <Tag className="w-4 h-4 text-emerald-500 shrink-0" />
+                {editingCategoria?.original === c ? (
+                  <input autoFocus value={editingCategoria.current} onChange={(e) => setEditingCategoria({...editingCategoria, current: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && renameCategoria()} onBlur={renameCategoria} className="font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded outline-none w-full text-sm" />
+                ) : <span className="font-bold text-slate-700 text-sm">{c}</span>}
+              </div>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => setEditingCategoria({ original: c, current: c })} className="p-2 text-slate-300 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => removeCategoria(c)} className="p-2 text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 };

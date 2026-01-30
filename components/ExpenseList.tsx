@@ -1,18 +1,18 @@
 
 import React from 'react';
-import { Spesa, Utente } from '../types';
-import { Trash2, Edit2, ShoppingBag, Zap, Fuel } from 'lucide-react';
+import { Spesa } from '../types';
+import { Trash2, ShoppingBag, Zap, Fuel, Calendar } from 'lucide-react';
 
 interface ExpenseListProps {
   spese: Spesa[];
   onDelete: (id: string) => void;
 }
 
-const CategoryIcon = ({ type }: { type: string }) => {
+const CategoryIcon = ({ type, className }: { type: string, className?: string }) => {
   switch (type) {
-    case 'Spesa': return <ShoppingBag className="w-4 h-4" />;
-    case 'Welfare': return <Zap className="w-4 h-4" />;
-    case 'Benzina': return <Fuel className="w-4 h-4" />;
+    case 'Spesa': return <ShoppingBag className={className} />;
+    case 'Welfare': return <Zap className={className} />;
+    case 'Benzina': return <Fuel className={className} />;
     default: return null;
   }
 };
@@ -20,64 +20,81 @@ const CategoryIcon = ({ type }: { type: string }) => {
 export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete }) => {
   const sortedSpese = [...spese].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Data</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Utente</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tipo</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Importo</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Note</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Azioni</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {sortedSpese.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-10 text-center text-slate-400">Nessuna spesa registrata.</td>
-              </tr>
-            ) : (
-              sortedSpese.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="px-6 py-4 text-sm text-slate-600 whitespace-nowrap">
-                    {new Date(s.data).toLocaleDateString('it-IT')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded-md text-xs font-bold ${
-                      s.utente === 'Luca' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
-                    }`}>
-                      {s.utente}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-sm text-slate-700">
-                      <CategoryIcon type={s.tipologia} />
-                      {s.tipologia}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
-                    €{s.importo.toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-500 max-w-xs truncate">
-                    {s.note || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                    <button 
-                      onClick={() => onDelete(s.id)}
-                      className="text-slate-400 hover:text-red-500 transition-colors p-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+  if (sortedSpese.length === 0) {
+    return (
+      <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
+        <p className="text-slate-400 text-sm font-medium">Ancora nessun movimento.</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Desktop Table Header */}
+      <div className="hidden md:grid grid-cols-6 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <div>Data</div>
+        <div>Utente</div>
+        <div>Categoria</div>
+        <div className="col-span-2">Dettagli</div>
+        <div className="text-right">Importo</div>
+      </div>
+
+      {sortedSpese.map((s) => (
+        <div key={s.id} className="bg-white p-4 md:px-6 md:py-4 rounded-2xl md:rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+          {/* Mobile Layout (Card) */}
+          <div className="flex md:hidden items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                s.utente === 'Luca' ? 'bg-blue-50 text-blue-600' : 'bg-pink-50 text-pink-600'
+              }`}>
+                <CategoryIcon type={s.tipologia} className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-slate-800 tracking-tight">€{s.importo.toFixed(2)}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                    s.utente === 'Luca' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
+                  }`}>{s.utente}</span>
+                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 uppercase">
+                    <Calendar className="w-2.5 h-2.5" /> {new Date(s.data).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button 
+              onClick={() => onDelete(s.id)}
+              className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 active:bg-red-50 rounded-full transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Desktop Layout (Row) */}
+          <div className="hidden md:grid grid-cols-6 items-center">
+            <div className="text-sm text-slate-500 font-medium">{new Date(s.data).toLocaleDateString('it-IT')}</div>
+            <div>
+              <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                s.utente === 'Luca' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
+              }`}>
+                {s.utente}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+              <CategoryIcon type={s.tipologia} className="w-4 h-4 opacity-50" />
+              {s.tipologia}
+            </div>
+            <div className="col-span-2 text-sm text-slate-400 truncate pr-4 italic">
+              {s.note || '-'}
+            </div>
+            <div className="text-right flex items-center justify-end gap-4">
+              <span className="text-sm font-black text-slate-800">€{s.importo.toFixed(2)}</span>
+              <button onClick={() => onDelete(s.id)} className="text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-all">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

@@ -3,13 +3,22 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>BenefitSync IA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+        body { 
+          font-family: 'Inter', sans-serif; 
+          margin: 0; 
+          padding: 0; 
+          /* Supporto per Safe Areas di iOS */
+          padding-bottom: env(safe-area-inset-bottom);
+          padding-top: env(safe-area-inset-top);
+        }
         #root { min-height: 100vh; }
+        /* Ottimizzazione scrollbar mobile */
+        ::-webkit-scrollbar { display: none; }
     </style>
 <script type="importmap">
 {
@@ -29,7 +38,7 @@
 }
 </script>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-50 text-slate-900 overflow-x-hidden">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
 </body>

@@ -1,8 +1,8 @@
 
-import { Sparkles, Loader2, Plus, AlertCircle, Mic, MicOff, Keyboard, X, Key } from 'lucide-react';
+import { Sparkles, Loader2, Mic, MicOff, X, Key, AlertTriangle } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { aiService } from '../services/geminiService';
-import { NewSpesa, Utente, Tipologia } from '../types';
+import { NewSpesa, Utente } from '../types';
 
 interface SmartEntryProps {
   onAdd: (expense: NewSpesa) => void;
@@ -13,6 +13,7 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [preview, setPreview] = useState<Partial<NewSpesa> | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -35,32 +36,9 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
   }, []);
 
   const toggleListening = () => {
+    setErrorMessage(null);
     if (isListening) recognitionRef.current?.stop();
     else recognitionRef.current?.start();
-  };
-
-  const handleMagicAnalysis = async (textToParse: string) => {
-    const trimmedInput = textToParse.trim();
-    if (!trimmedInput) return;
-    setIsLoading(true);
-    try {
-      const result = await aiService.parseSmartEntry(trimmedInput);
-      if (result) {
-        setPreview(result);
-      } else {
-        alert("Non sono riuscito a interpretare la frase.");
-      }
-    } catch (error: any) {
-      if (error.message === "KEY_NOT_FOUND") {
-        alert("Chiave API non valida o non configurata per questo modello. Premi l'icona della chiave in alto a destra per configurarla.");
-        // @ts-ignore
-        if (window.aistudio) await window.aistudio.openSelectKey();
-      } else {
-        alert("Errore di connessione. Riprova.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleOpenKey = async () => {
@@ -70,10 +48,33 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
         // @ts-ignore
         await window.aistudio.openSelectKey();
       } else {
-        alert("Questa funzione è disponibile solo nell'ambiente AI Studio.");
+        setErrorMessage("Il selettore chiavi è disponibile solo nell'ambiente AI Studio.");
       }
     } catch (e) {
-      console.error(e);
+      setErrorMessage("Impossibile aprire il selettore chiavi.");
+    }
+  };
+
+  const handleMagicAnalysis = async (textToParse: string) => {
+    const trimmedInput = textToParse.trim();
+    if (!trimmedInput) return;
+    
+    setIsLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      const result = await aiService.parseSmartEntry(trimmedInput);
+      if (result) {
+        setPreview(result);
+      }
+    } catch (error: any) {
+      if (error.message === "MODELLO_NON_TROVATO" || error.message === "CHIAVE_NON_VALIDA") {
+        setErrorMessage("Configurazione API necessaria. Clicca l'icona della chiave.");
+      } else {
+        setErrorMessage(`Errore: ${error.message}`);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -86,7 +87,7 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-5 md:p-6 rounded-3xl shadow-xl shadow-indigo-100 text-white mb-6 border border-white/10">
+    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-5 md:p-6 rounded-3xl shadow-xl shadow-indigo-100 text-white mb-6 border border-white/10 transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="bg-white/20 p-1.5 rounded-lg">
@@ -96,46 +97,60 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
         </div>
         <div className="flex items-center gap-3">
           {isListening && (
-            <div className="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1.5">
+            <div className="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1.5 bg-red-500/20 px-2 py-1 rounded-full border border-red-500/30">
               <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div> In ascolto
             </div>
           )}
           <button 
             onClick={handleOpenKey}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-90"
+            className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all active:scale-90 flex items-center gap-2 border border-white/5"
             title="Configura Chiave API"
           >
             <Key className="w-4 h-4" />
+            <span className="text-[10px] font-bold hidden sm:inline">Configura API</span>
           </button>
         </div>
       </div>
       
       <div className="relative group">
         <input
-          type="text" value={input} onChange={(e) => setInput(e.target.value)}
-          placeholder='Es: "Federica 20€ benzina"'
-          className="w-full bg-white/15 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all pr-24 text-sm md:text-base font-medium"
+          type="text" value={input} onChange={(e) => { setInput(e.target.value); setErrorMessage(null); }}
+          placeholder='Es: "Spesa Esselunga 45€ Luca"'
+          className="w-full bg-white/15 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all pr-24 text-sm md:text-base font-medium shadow-inner"
           onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleMagicAnalysis(input)}
         />
         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          <button onClick={toggleListening} className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 animate-pulse' : 'bg-white/10 hover:bg-white/20'}`}>
+          <button onClick={toggleListening} className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 shadow-lg' : 'bg-white/10 hover:bg-white/20'}`}>
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
-          <button onClick={() => handleMagicAnalysis(input)} disabled={isLoading} className="bg-white text-indigo-700 p-2.5 rounded-xl shadow-lg active:scale-95 disabled:opacity-50 transition-all">
+          <button 
+            onClick={() => handleMagicAnalysis(input)} 
+            disabled={isLoading || !input.trim()} 
+            className="bg-white text-indigo-700 p-2.5 rounded-xl shadow-lg active:scale-95 disabled:opacity-50 disabled:active:scale-100 transition-all"
+          >
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="mt-3 flex items-center gap-2 text-red-200 text-[11px] font-bold bg-red-500/20 p-2 rounded-xl border border-red-500/30 animate-in fade-in zoom-in-95 duration-200">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          {errorMessage}
+        </div>
+      )}
+
       {preview && (
-        <div className="mt-4 p-5 bg-white/10 rounded-2xl border border-white/20 animate-in slide-in-from-top-4 duration-300 backdrop-blur-md">
+        <div className="mt-4 p-5 bg-white/10 rounded-2xl border border-white/20 animate-in slide-in-from-top-4 duration-300 backdrop-blur-md shadow-2xl">
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Dati rilevati</span>
-            <button onClick={() => setPreview(null)}><X className="w-4 h-4 text-white/50" /></button>
+            <button onClick={() => setPreview(null)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+              <X className="w-4 h-4 text-white/50" />
+            </button>
           </div>
           
           <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="bg-black/20 p-3 rounded-xl">
+            <div className="bg-black/20 p-3 rounded-xl border border-white/5">
               <label className="opacity-50 block text-[8px] font-black uppercase mb-1">Chi</label>
               <select 
                 value={preview.utente || ''} 
@@ -147,11 +162,11 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
                 <option value="Federica" className="text-slate-800">Federica</option>
               </select>
             </div>
-            <div className="bg-black/20 p-3 rounded-xl">
-              <label className="opacity-50 block text-[8px] font-black uppercase mb-1">Importo</label>
+            <div className="bg-black/20 p-3 rounded-xl border border-white/5">
+              <label className="opacity-50 block text-[8px] font-black uppercase mb-1">Importo (€)</label>
               <input 
                 type="number" step="0.01" 
-                value={preview.importo} 
+                value={preview.importo || ''} 
                 onChange={(e) => setPreview({...preview, importo: parseFloat(e.target.value)})} 
                 className="bg-transparent font-bold w-full outline-none text-sm" 
               />
@@ -160,10 +175,10 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
           
           <button 
             onClick={confirmAdd}
-            disabled={!preview.utente || !preview.importo}
-            className="w-full bg-white text-indigo-800 py-3.5 rounded-xl text-sm font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-30"
+            disabled={!preview.utente || !preview.importo || !preview.tipologia}
+            className="w-full bg-white text-indigo-800 py-3.5 rounded-xl text-sm font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            Salva ora
+            Conferma e Salva
           </button>
         </div>
       )}

@@ -8,8 +8,8 @@ export const aiService = {
    */
   parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
     try {
-      // Inizializziamo l'istanza con la chiave corrente
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      // Inizializziamo l'istanza con la chiave corrente iniettata dall'ambiente
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -25,21 +25,28 @@ export const aiService = {
               importo: { type: Type.NUMBER, nullable: true },
               data: { type: Type.STRING, nullable: true },
               note: { type: Type.STRING, nullable: true }
-            }
+            },
+            required: ["importo", "tipologia"]
           }
         }
       });
 
-      const text = response.text;
-      if (!text) return null;
+      if (!response.text) {
+        throw new Error("La risposta dell'IA è vuota.");
+      }
 
-      return JSON.parse(text.trim());
+      return JSON.parse(response.text.trim());
     } catch (error: any) {
       console.error("AI Error:", error);
-      if (error.message?.toLowerCase().includes("not found") || error.message?.includes("404")) {
-        throw new Error("KEY_NOT_FOUND");
+      // Trasmettiamo il messaggio d'errore specifico per il debug nell'interfaccia
+      const errorMsg = error.message || "Errore sconosciuto";
+      if (errorMsg.includes("404") || errorMsg.includes("not found")) {
+        throw new Error("MODELLO_NON_TROVATO");
       }
-      throw error;
+      if (errorMsg.includes("401") || errorMsg.includes("API key")) {
+        throw new Error("CHIAVE_NON_VALIDA");
+      }
+      throw new Error(errorMsg);
     }
   },
 
@@ -48,24 +55,21 @@ export const aiService = {
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const dataStr = JSON.stringify(history);
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Analizza questi dati: ${dataStr}. Rispondi alla domanda: ${query}`,
         config: {
-          systemInstruction: "Sei un assistente per una coppia. Sii breve e simpatico. Usa i nomi Luca e Federica."
+          systemInstruction: "Sei un assistente per una coppia (Luca e Federica). Sii breve, usa emoji e rispondi in italiano."
         }
       });
 
-      return response.text || "Non ho capito, puoi riprovare?";
+      return response.text || "Non ho potuto generare un'analisi.";
     } catch (error: any) {
       console.error("AI Analysis Error:", error);
-      if (error.message?.toLowerCase().includes("not found") || error.message?.includes("404")) {
-        throw new Error("KEY_NOT_FOUND");
-      }
-      return "Errore nell'analisi dei dati.";
+      return `Errore nell'analisi: ${error.message}`;
     }
   }
 };

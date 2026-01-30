@@ -2,31 +2,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Spesa, NewSpesa } from "../types";
 
-// Funzione helper per recuperare la chiave API in modo robusto
-const getApiKey = () => {
-  return process.env.API_KEY || (process.env as any).VITE_API_KEY || "";
-};
-
 export const aiService = {
   /**
    * Smart Entry: Analizza il linguaggio naturale per creare un oggetto spesa.
    */
   parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
-    const key = getApiKey();
+    // La chiave DEVE chiamarsi API_KEY nel pannello Vercel
+    const apiKey = process.env.API_KEY;
     
-    if (!key) {
-      console.error("API Key mancante nel sistema.");
+    if (!apiKey) {
+      console.error("ERRORE CRITICO: process.env.API_KEY non è definita.");
       throw new Error("CHIAVE_MANCANTE");
     }
 
     try {
-      const ai = new GoogleGenAI({ apiKey: key });
+      const ai = new GoogleGenAI({ apiKey });
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Analizza questa operazione di spesa: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
+        contents: `Estrai dati spesa in JSON da questa frase: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
         config: {
-          systemInstruction: "Estrai dati in JSON: utente (Luca/Federica), tipologia (Spesa/Welfare/Benzina), importo (numero), data (YYYY-MM-DD), note.",
+          systemInstruction: "Sei un assistente per la gestione spese. Estrai i dati in formato JSON. Campi: utente (Luca o Federica), tipologia (Spesa, Welfare o Benzina), importo (numero decimale), data (YYYY-MM-DD), note (opzionale).",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -43,20 +39,13 @@ export const aiService = {
       });
 
       const text = response.text;
-      if (!text) throw new Error("Risposta vuota");
+      if (!text) throw new Error("L'IA ha restituito una risposta vuota.");
       return JSON.parse(text.trim());
     } catch (error: any) {
-      console.error("Dettaglio Errore AI:", error);
+      console.error("Dettaglio Errore Gemini API:", error);
       const msg = error.message?.toLowerCase() || "";
-      
-      if (msg.includes("401") || msg.includes("api key not valid") || msg.includes("invalid")) {
+      if (msg.includes("401") || msg.includes("api key") || msg.includes("not valid")) {
         throw new Error("CHIAVE_NON_VALIDA");
-      }
-      if (msg.includes("404") || msg.includes("not found")) {
-        throw new Error("MODELLO_NON_DISPONIBILE");
-      }
-      if (msg.includes("fetch") || msg.includes("network")) {
-        throw new Error("ERRORE_RETE");
       }
       throw new Error(error.message || "ERRORE_GENERICO");
     }
@@ -66,22 +55,21 @@ export const aiService = {
    * AI Assistant: Analisi dati storici.
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
-    const key = getApiKey();
-    if (!key) return "Configura la chiave API per usare l'assistente.";
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return "Errore: La variabile API_KEY non è configurata correttamente su Vercel.";
 
     try {
-      const ai = new GoogleGenAI({ apiKey: key });
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `Dati: ${JSON.stringify(history)}. Domanda: ${query}`,
+        contents: `Dati della coppia: ${JSON.stringify(history)}. Domanda: ${query}`,
         config: {
-          systemInstruction: "Sei un assistente per la gestione spese di Luca e Federica. Rispondi in modo conciso e amichevole."
+          systemInstruction: "Rispondi in italiano in modo amichevole e sintetico analizzando le spese di Luca e Federica."
         }
       });
 
-      return response.text || "Non ho potuto elaborare un'analisi.";
+      return response.text || "Non sono riuscito a generare un'analisi.";
     } catch (error: any) {
-      console.error("Analysis Error:", error);
       return `Errore tecnico: ${error.message}`;
     }
   }

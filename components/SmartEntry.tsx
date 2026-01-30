@@ -1,8 +1,8 @@
 
-import { Sparkles, Loader2, Mic, MicOff, X, Key, AlertCircle, RefreshCw, Settings } from 'lucide-react';
+import { Sparkles, Loader2, Mic, MicOff, X, AlertCircle } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { aiService } from '../services/geminiService';
-import { NewSpesa, Utente } from '../types';
+import { NewSpesa } from '../types';
 
 interface SmartEntryProps {
   onAdd: (expense: NewSpesa) => void;
@@ -13,7 +13,7 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [preview, setPreview] = useState<Partial<NewSpesa> | null>(null);
-  const [errorStatus, setErrorStatus] = useState<'NONE' | 'MISSING_KEY' | 'INVALID_KEY' | 'GENERIC'>('NONE');
+  const [hasError, setHasError] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -32,28 +32,17 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
     }
   }, []);
 
-  const handleOpenKeySelector = async () => {
-    if ((window as any).aistudio?.openSelectKey) {
-      await (window as any).aistudio.openSelectKey();
-      setErrorStatus('NONE');
-      // Dopo l'apertura del selettore, l'app dovrebbe avere accesso alla chiave
-    } else {
-      alert("Selettore chiavi non disponibile in questo ambiente. Verifica le variabili d'ambiente su Vercel.");
-    }
-  };
-
   const handleMagicAnalysis = async (textToParse: string) => {
     if (!textToParse.trim()) return;
     setIsLoading(true);
-    setErrorStatus('NONE');
+    setHasError(false);
     
     try {
       const result = await aiService.parseSmartEntry(textToParse);
       if (result) setPreview(result);
     } catch (error: any) {
-      if (error.message === "CHIAVE_MANCANTE") setErrorStatus('MISSING_KEY');
-      else if (error.message === "CHIAVE_NON_VALIDA") setErrorStatus('INVALID_KEY');
-      else setErrorStatus('GENERIC');
+      console.error("AI Entry Error:", error);
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -77,24 +66,13 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
           <Sparkles className="w-4 h-4 text-yellow-300" />
           <h3 className="font-black text-xs uppercase tracking-widest">IA Smart Entry</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={handleOpenKeySelector}
-            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors group relative"
-            title="Configura Chiave API"
-          >
-            <Key className="w-3.5 h-3.5 text-indigo-200 group-hover:text-white" />
-          </button>
-          <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/10">
-            <div className={`w-1.5 h-1.5 rounded-full ${errorStatus === 'NONE' ? 'bg-emerald-400' : 'bg-red-400 animate-pulse'}`}></div>
-            <span className="text-[10px] font-bold uppercase">{errorStatus === 'NONE' ? 'Pronto' : 'Errore'}</span>
-          </div>
-        </div>
       </div>
       
       <div className="relative z-10">
         <input
-          type="text" value={input} onChange={(e) => { setInput(e.target.value); setErrorStatus('NONE'); }}
+          type="text" 
+          value={input} 
+          onChange={(e) => { setInput(e.target.value); setHasError(false); }}
           placeholder='Es: "50 euro benzina Luca"'
           className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-white/40 pr-24 transition-all"
           onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleMagicAnalysis(input)}
@@ -103,6 +81,7 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
           <button 
             onClick={() => isListening ? recognitionRef.current?.stop() : recognitionRef.current?.start()}
             className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 shadow-lg' : 'bg-white/10 hover:bg-white/20'}`}
+            title={isListening ? "Ferma registrazione" : "Dettatura vocale"}
           >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
@@ -116,21 +95,15 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
         </div>
       </div>
 
-      {errorStatus !== 'NONE' && (
+      {hasError && (
         <div className="mt-4 p-4 bg-red-500/20 border border-red-500/40 rounded-2xl animate-in slide-in-from-top-2 relative z-10">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-300 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-black text-red-100 uppercase tracking-widest">Problema di Connessione</p>
+              <p className="text-xs font-black text-red-100 uppercase tracking-widest">Errore IA</p>
               <p className="text-[11px] text-red-200/90 leading-relaxed mt-1">
-                L'IA non riesce a connettersi. Assicurati che la chiave su Vercel sia corretta o configurala ora.
+                Non ho capito bene la spesa o c'è un problema di connessione. Riprova con un formato più semplice.
               </p>
-              <button 
-                onClick={handleOpenKeySelector}
-                className="mt-3 flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border border-white/10"
-              >
-                <Key className="w-3 h-3" /> Configura Chiave Ora
-              </button>
             </div>
           </div>
         </div>

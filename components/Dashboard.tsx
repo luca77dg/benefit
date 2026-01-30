@@ -22,7 +22,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
 
     const diff = Math.abs(summary.Luca - summary.Federica);
     const leader: Utente | 'Parità' = summary.Luca > summary.Federica ? 'Luca' : summary.Federica > summary.Luca ? 'Federica' : 'Parità';
-    const runnerUp = leader === 'Luca' ? 'Federica' : 'Luca';
+    const runnerUp: Utente | null = leader === 'Luca' ? 'Federica' : leader === 'Federica' ? 'Luca' : null;
 
     return { ...summary, diff, leader, runnerUp };
   }, [spese]);
@@ -33,7 +33,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
       <div className="bg-white p-6 md:p-8 rounded-[24px] md:rounded-[32px] shadow-sm border border-slate-100 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8">
           <div className="flex-1">
-            <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2 md:mb-3">Leader delle Spese</h3>
+            <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Leader delle Spese</h3>
             <div className="flex items-center gap-4">
               <span className={`text-4xl md:text-6xl font-black tracking-tighter ${
                 stats.leader === 'Luca' ? 'text-blue-600' : 
@@ -51,14 +51,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
               )}
             </div>
             
-            <div className="mt-3 md:mt-4">
+            <div className="mt-2">
               {stats.leader === 'Parità' ? (
-                <p className="text-slate-500 font-medium text-xs md:text-sm">Le spese sono in equilibrio.</p>
+                <p className="text-slate-500 font-medium text-xs md:text-sm">Le spese sono in equilibrio perfetto.</p>
               ) : (
-                <p className={`text-[10px] md:text-sm font-bold uppercase tracking-tight ${
+                <p className={`text-[10px] md:text-xs font-black uppercase tracking-widest ${
                   stats.leader === 'Luca' ? 'text-blue-500' : 'text-pink-500'
                 }`}>
-                  {stats.leader} ha speso {stats.diff.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € in più
+                  {stats.leader} HA SPESO {stats.diff.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € IN PIÙ RISPETTO A {stats.runnerUp}
                 </p>
               )}
             </div>
@@ -67,7 +67,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
           <div className="bg-slate-50/80 backdrop-blur-sm p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-100 min-w-[180px] md:min-w-[220px]">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Totale Combinato</p>
             <p className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.total.toFixed(2)}</p>
-            <div className="mt-3 w-full bg-slate-200 h-1 rounded-full overflow-hidden flex">
+            <div className="mt-3 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden flex">
               <div 
                 className="bg-blue-500 h-full transition-all duration-1000" 
                 style={{ width: `${(stats.Luca / (stats.total || 1)) * 100}%` }}
@@ -85,7 +85,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {/* Luca Card */}
         <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-[28px] shadow-sm border border-slate-100 flex items-center gap-4 md:gap-6 group hover:shadow-md transition-all">
-          <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600 shadow-sm">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600 shadow-sm transition-transform group-hover:scale-105">
             <User className="w-6 h-6 md:w-8 md:h-8" />
           </div>
           <div>
@@ -96,7 +96,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese }) => {
 
         {/* Federica Card */}
         <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-[28px] shadow-sm border border-slate-100 flex items-center gap-4 md:gap-6 group hover:shadow-md transition-all">
-          <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 rounded-xl md:rounded-2xl flex items-center justify-center text-pink-600 shadow-sm">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 rounded-xl md:rounded-2xl flex items-center justify-center text-pink-600 shadow-sm transition-transform group-hover:scale-105">
             <User className="w-6 h-6 md:w-8 md:h-8" />
           </div>
           <div>

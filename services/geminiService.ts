@@ -7,23 +7,22 @@ export const aiService = {
    * Smart Entry: Analizza il linguaggio naturale per creare un oggetto spesa.
    */
   parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
-    // Ora process.env.API_KEY sarà disponibile grazie alla modifica in vite.config.ts
     const apiKey = process.env.API_KEY;
     
-    if (!apiKey || apiKey === "undefined") {
-      console.error("ERRORE: API_KEY non trovata nell'ambiente di esecuzione.");
+    if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
+      console.error("ERRORE: API_KEY non valida o mancante.");
       throw new Error("CHIAVE_MANCANTE");
     }
 
     try {
-      // Inizializzazione rigorosa come da specifiche Google GenAI SDK
       const ai = new GoogleGenAI({ apiKey });
       
+      // Utilizziamo gemini-flash-latest che è il più compatibile con tutte le API key
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-flash-latest',
         contents: `Analizza questa spesa e convertila in JSON: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
         config: {
-          systemInstruction: "Sei BenefitSync, un assistente esperto. Estrai sempre: utente (Luca/Federica), tipologia (Spesa/Welfare/Benzina), importo (numero), data (YYYY-MM-DD), note. Rispondi SOLO con il JSON.",
+          systemInstruction: "Sei un assistente per la gestione spese di coppia. Estrai dati JSON: utente (Luca/Federica), tipologia (Spesa/Welfare/Benzina), importo (numero), data (YYYY-MM-DD), note. Rispondi solo col JSON.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -40,12 +39,12 @@ export const aiService = {
       });
 
       const text = response.text;
-      if (!text) throw new Error("Risposta IA vuota");
+      if (!text) throw new Error("Risposta vuota");
       return JSON.parse(text.trim());
     } catch (error: any) {
-      console.error("Dettaglio Errore Gemini:", error);
+      console.error("Gemini Error:", error);
       const msg = error.message?.toLowerCase() || "";
-      if (msg.includes("401") || msg.includes("api key")) {
+      if (msg.includes("401") || msg.includes("api key") || msg.includes("not found")) {
         throw new Error("CHIAVE_NON_VALIDA");
       }
       throw new Error("ERRORE_GENERICO");
@@ -57,21 +56,21 @@ export const aiService = {
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
     const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === "undefined") return "Errore: Variabile API_KEY non configurata su Vercel.";
+    if (!apiKey || apiKey === "undefined") return "Errore: Chiave non configurata.";
 
     try {
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Analizza questi dati: ${JSON.stringify(history)}. Domanda: ${query}`,
+        model: 'gemini-flash-latest',
+        contents: `Dati: ${JSON.stringify(history)}. Domanda: ${query}`,
         config: {
-          systemInstruction: "Sei un analista finanziario di coppia. Rispondi in modo conciso, amichevole e in italiano."
+          systemInstruction: "Sei un analista finanziario amichevole. Rispondi in italiano in modo sintetico."
         }
       });
 
-      return response.text || "Non è stato possibile generare un'analisi.";
+      return response.text || "Impossibile generare l'analisi.";
     } catch (error: any) {
-      return `Errore nell'analisi: ${error.message}`;
+      return `Errore: ${error.message}`;
     }
   }
 };

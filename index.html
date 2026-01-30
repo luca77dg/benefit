@@ -12,12 +12,10 @@
           font-family: 'Inter', sans-serif; 
           margin: 0; 
           padding: 0; 
-          /* Supporto per Safe Areas di iOS */
           padding-bottom: env(safe-area-inset-bottom);
           padding-top: env(safe-area-inset-top);
         }
         #root { min-height: 100vh; }
-        /* Ottimizzazione scrollbar mobile */
         ::-webkit-scrollbar { display: none; }
     </style>
 <script type="importmap">
@@ -31,7 +29,7 @@
     "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
     "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom",
     "lucide-react": "https://esm.sh/lucide-react@0.400.0?external=react",
-    "@google/genai": "https://esm.sh/@google/genai@1.3.0",
+    "@google/genai": "https://esm.sh/@google/genai@1.33.0",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }

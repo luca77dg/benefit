@@ -1,5 +1,5 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { Spesa, NewSpesa, Budget, AppSettings } from '../types';
 
 const STORAGE_KEY = 'benefits_sync_data';
@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 let supabaseInstance: SupabaseClient | null = null;
+let realtimeChannel: RealtimeChannel | null = null;
 
 export const db = {
   getSupabase: async () => {
@@ -24,6 +25,25 @@ export const db = {
       return supabaseInstance;
     }
     return null;
+  },
+
+  // Sottoscrizione Realtime: la chiave per la velocità istantanea
+  subscribeToChanges: async (onSpeseChange: () => void, onSettingsChange: () => void) => {
+    const sb = await db.getSupabase();
+    if (!sb) return null;
+
+    if (realtimeChannel) realtimeChannel.unsubscribe();
+
+    realtimeChannel = sb.channel('any-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'spese' }, () => {
+        onSpeseChange();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'impostazioni' }, () => {
+        onSettingsChange();
+      })
+      .subscribe();
+
+    return realtimeChannel;
   },
 
   getSpese: async (): Promise<Spesa[]> => {
@@ -50,6 +70,10 @@ export const db = {
       creato_il: new Date().toISOString(),
     };
 
+    // Salvataggio ottimistico locale immediato
+    const current = await db.getSpese();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([entry, ...current]));
+
     let synced = false;
     try {
       const sb = await db.getSupabase();
@@ -65,15 +89,10 @@ export const db = {
         if (!error && data?.[0]) {
           synced = true;
           entry.id = data[0].id;
-          entry.creato_il = data[0].creato_il;
         }
       }
-    } catch (e) {
-      console.warn("Salvataggio solo locale");
-    }
+    } catch (e) {}
 
-    const current = await db.getSpese();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([entry, ...current]));
     return { entry, synced };
   },
 
@@ -112,47 +131,31 @@ export const db = {
   },
 
   getSettings: async (): Promise<AppSettings> => {
-    // 1. Prova a leggere dal Cloud se connesso
+    const localData = localStorage.getItem(SETTINGS_KEY);
+    const localSettings = localData ? JSON.parse(localData) : DEFAULT_SETTINGS;
+
     try {
-      // Nota: usiamo una versione light di getSupabase per evitare loop ricorsivi
-      const localData = localStorage.getItem(SETTINGS_KEY);
-      if (localData) {
-        const localSettings = JSON.parse(localData);
-        if (localSettings.supabase?.connected) {
-          const sb = createClient(localSettings.supabase.url, localSettings.supabase.key);
-          const { data, error } = await sb.from('impostazioni').select('data').eq('id', CONFIG_ID).single();
-          if (!error && data) {
-            // Uniamo i dati cloud con i dati di connessione locali
-            const cloudSettings = { 
-              ...data.data, 
-              supabase: localSettings.supabase 
-            };
-            localStorage.setItem(SETTINGS_KEY, JSON.stringify(cloudSettings));
-            return cloudSettings;
-          }
+      if (localSettings.supabase?.connected) {
+        const sb = createClient(localSettings.supabase.url, localSettings.supabase.key);
+        const { data, error } = await sb.from('impostazioni').select('data').eq('id', CONFIG_ID).single();
+        if (!error && data) {
+          const cloudSettings = { ...data.data, supabase: localSettings.supabase };
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(cloudSettings));
+          return cloudSettings;
         }
       }
-    } catch (e) {
-      console.warn("Impossibile recuperare impostazioni dal cloud");
-    }
+    } catch (e) {}
 
-    // 2. Fallback al locale
-    const data = localStorage.getItem(SETTINGS_KEY);
-    if (!data) return DEFAULT_SETTINGS;
-    return JSON.parse(data);
+    return localSettings;
   },
 
   saveSettings: async (settings: AppSettings): Promise<void> => {
-    // 1. Salva localmente
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     supabaseInstance = null; 
 
-    // 2. Prova a salvare sul cloud (escludendo i dati sensibili di connessione stessi se vuoi, 
-    // ma qui salviamo tutto tranne la chiave per pulizia se necessario)
     try {
       const sb = await db.getSupabase();
       if (sb) {
-        // Rimuoviamo i dati supabase dall'oggetto da salvare nel cloud per evitare loop o leak
         const { supabase, ...configToSave } = settings;
         await sb.from('impostazioni').upsert({
           id: CONFIG_ID,
@@ -160,15 +163,7 @@ export const db = {
           aggiornato_il: new Date().toISOString()
         });
       }
-    } catch (e) {
-      console.error("Errore salvataggio impostazioni cloud:", e);
-    }
-  },
-
-  importAllData: async (data: { settings: AppSettings, spese: Spesa[] }): Promise<void> => {
-    if (data.settings) await db.saveSettings(data.settings);
-    if (data.spese) localStorage.setItem(STORAGE_KEY, JSON.stringify(data.spese));
-    supabaseInstance = null;
+    } catch (e) {}
   },
 
   syncLocalToCloud: async (): Promise<boolean> => {
@@ -176,30 +171,46 @@ export const db = {
       const sb = await db.getSupabase();
       if (!sb) return false;
 
-      // Sincronizza Impostazioni (Saldi Iniziali)
       const settings = await db.getSettings();
       const { supabase, ...configToSave } = settings;
-      await sb.from('impostazioni').upsert({
-        id: CONFIG_ID,
-        data: configToSave,
-        aggiornato_il: new Date().toISOString()
-      });
+      await sb.from('impostazioni').upsert({ id: CONFIG_ID, data: configToSave });
 
-      // Sincronizza Spese
       const local = localStorage.getItem(STORAGE_KEY);
-      if (!local) return true;
-      const localSpese: Spesa[] = JSON.parse(local);
-
-      if (localSpese.length > 0) {
-        const { error } = await sb.from('spese').upsert(localSpese);
-        if (error) return false;
+      if (local) {
+        const localSpese: Spesa[] = JSON.parse(local);
+        if (localSpese.length > 0) {
+          await sb.from('spese').upsert(localSpese);
+        }
       }
-      
       await db.getSpese();
       return true;
+    } catch (e) { return false; }
+  },
+
+  /**
+   * Import All Data: ripristina impostazioni e spese da un oggetto di backup caricato dall'utente.
+   * Salva localmente e tenta la sincronizzazione col cloud se disponibile.
+   */
+  importAllData: async (data: { settings: AppSettings, spese: Spesa[] }): Promise<void> => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.settings));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data.spese));
+    supabaseInstance = null; 
+
+    try {
+      const sb = await db.getSupabase();
+      if (sb) {
+        const { supabase, ...configToSave } = data.settings;
+        await sb.from('impostazioni').upsert({
+          id: CONFIG_ID,
+          data: configToSave,
+          aggiornato_il: new Date().toISOString()
+        });
+        if (data.spese.length > 0) {
+          await sb.from('spese').upsert(data.spese);
+        }
+      }
     } catch (e) {
-      console.error("Sync error:", e);
-      return false;
+      console.warn("Cloud import partially failed, data saved locally", e);
     }
   }
 };

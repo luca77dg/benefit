@@ -7,7 +7,7 @@ import { ExpenseList } from './components/ExpenseList';
 import { SmartEntry } from './components/SmartEntry';
 import { AIAssistant } from './components/AIAssistant';
 import { Settings } from './components/Settings';
-import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, ArrowUpRight, Sparkles, Settings as SettingsIcon, Cloud, CloudOff, Check } from 'lucide-react';
+import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, ArrowUpRight, Sparkles, Settings as SettingsIcon, Cloud, CloudOff, Check, Radio } from 'lucide-react';
 
 const App: React.FC = () => {
   const [spese, setSpese] = useState<Spesa[]>([]);
@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list' | 'ai' | 'settings'>('dashboard');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isLive, setIsLive] = useState(false);
   const [lastSyncSuccess, setLastSyncSuccess] = useState(false);
   const [editingSpesaId, setEditingSpesaId] = useState<string | null>(null);
 
@@ -26,28 +27,48 @@ const App: React.FC = () => {
     note: ''
   });
 
+  // Caricamento dati iniziale e Setup Realtime
   useEffect(() => {
-    loadData();
+    const init = async () => {
+      await loadData();
+      
+      // Attiviamo il canale Realtime per aggiornamenti istantanei
+      const channel = await db.subscribeToChanges(
+        () => fetchSpeseOnly(), // Callback quando cambiano le spese
+        () => fetchSettingsOnly() // Callback quando cambiano le impostazioni
+      );
+      
+      if (channel) setIsLive(true);
+    };
+
+    init();
   }, []);
 
   const loadData = async () => {
     setIsSyncing(true);
     const currentSettings = await db.getSettings();
     setSettings(currentSettings);
-    
     const data = await db.getSpese();
     setSpese(data);
-    
-    // Verifichiamo se siamo connessi al cloud
     const sb = await db.getSupabase();
     setLastSyncSuccess(!!sb && currentSettings.supabase?.connected);
     setIsSyncing(false);
   };
 
+  const fetchSpeseOnly = async () => {
+    const data = await db.getSpese();
+    setSpese(data);
+  };
+
+  const fetchSettingsOnly = async () => {
+    const currentSettings = await db.getSettings();
+    setSettings(currentSettings);
+  };
+
   const handleUpdateSettings = async (newSettings: AppSettings) => {
+    setSettings(newSettings); // Ottimistico
     await db.saveSettings(newSettings);
-    setSettings(newSettings);
-    await loadData();
+    setLastSyncSuccess(true);
   };
 
   const handleOpenAdd = () => {
@@ -77,44 +98,59 @@ const App: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSyncing(true);
+    
     if (editingSpesaId) {
+      // Aggiornamento ottimistico stato locale
+      setSpese(prev => prev.map(s => s.id === editingSpesaId ? { ...s, ...formState } : s));
       const success = await db.updateSpesa(editingSpesaId, formState);
       setLastSyncSuccess(success);
     } else {
+      // Aggiunta ottimistica
+      const tempId = Math.random().toString(36).substr(2, 9);
+      const tempEntry: Spesa = { ...formState, id: tempId, creato_il: new Date().toISOString() };
+      setSpese(prev => [tempEntry, ...prev]);
+      
       const { synced } = await db.addSpesa(formState);
       setLastSyncSuccess(synced);
     }
-    await loadData();
+    
     setIsFormOpen(false);
+    setIsSyncing(false);
   };
 
   const handleAddFromSmartEntry = async (expense: NewSpesa) => {
     setIsSyncing(true);
     const { synced } = await db.addSpesa(expense);
     setLastSyncSuccess(synced);
-    await loadData();
+    await fetchSpeseOnly();
+    setIsSyncing(false);
   };
 
   const handleDeleteExpense = async (id: string) => {
     if (confirm('Eliminare questa spesa?')) {
-      setIsSyncing(true);
+      setSpese(prev => prev.filter(s => s.id !== id)); // Ottimistico
       const success = await db.deleteSpesa(id);
       setLastSyncSuccess(success);
-      await loadData();
     }
   };
 
   const SyncStatus = () => (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+      isLive ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'
+    }`}>
       {isSyncing ? (
         <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+      ) : isLive ? (
+        <Radio className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
       ) : lastSyncSuccess ? (
         <Cloud className="w-3.5 h-3.5 text-emerald-500" />
       ) : (
         <CloudOff className="w-3.5 h-3.5 text-slate-300" />
       )}
-      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-        {isSyncing ? 'Sincronizzazione...' : lastSyncSuccess ? 'Cloud Attivo' : 'Modalità Locale'}
+      <span className={`text-[9px] font-black uppercase tracking-widest ${
+        isLive ? 'text-indigo-600' : 'text-slate-500'
+      }`}>
+        {isSyncing ? 'Sync...' : isLive ? 'Instant Live' : lastSyncSuccess ? 'Cloud Attivo' : 'Offline'}
       </span>
     </div>
   );

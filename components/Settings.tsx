@@ -4,7 +4,7 @@ import { AppSettings, SupabaseConfig, Spesa } from '../types';
 import { 
   UserPlus, Trash2, CheckCircle2, Pencil, Cloud, Copy, 
   RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
-  AlertTriangle, Smartphone, Share, Sparkles
+  AlertTriangle, Smartphone, Share, Sparkles, HelpCircle, ExternalLink, Key, Zap
 } from 'lucide-react';
 import { db } from '../services/database';
 
@@ -19,6 +19,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
   const [newCategoria, setNewCategoria] = useState('');
   const [syncCode, setSyncCode] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [editingUtente, setEditingUtente] = useState<{ original: string, current: string } | null>(null);
@@ -96,37 +97,14 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
     onUpdate(newSettings);
     try {
       await db.getSpese();
-      alert("Database collegato correttamente!");
+      // Dopo la connessione, forziamo una sincronizzazione dei saldi iniziali
+      await db.syncLocalToCloud();
+      alert("Database collegato e dati sincronizzati!");
     } catch (e) {
-      alert("Errore di connessione a Supabase.");
+      alert("Errore di connessione. Controlla URL e Key.");
     } finally {
       setIsSyncing(false);
     }
-  };
-
-  const generateSyncCode = () => {
-    const config = {
-      u: settings.supabase?.url,
-      k: settings.supabase?.key,
-      set: { utenti: settings.utenti, categorie: settings.categorie, saldi: settings.saldiIniziali }
-    };
-    navigator.clipboard.writeText(btoa(JSON.stringify(config)));
-    alert("Codice copiato!");
-  };
-
-  const importSyncCode = () => {
-    try {
-      const config = JSON.parse(atob(syncCode.trim()));
-      onUpdate({
-        ...settings,
-        utenti: config.set.utenti,
-        categorie: config.set.categorie,
-        saldiIniziali: config.set.saldi,
-        supabase: { url: config.u, key: config.k, connected: !!config.u }
-      });
-      setSyncCode('');
-      alert("Configurazione importata!");
-    } catch (e) { alert("Codice non valido."); }
   };
 
   const handleExport = async () => {
@@ -155,7 +133,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
         if (!data.settings || !data.spese) throw new Error();
         if (confirm("Attenzione! L'importazione sovrascriverà tutti i dati. Continuare?")) {
           await db.importAllData(data);
-          alert("Dati importati!");
+          alert("Dati importati correttamente!");
           onRefresh();
         }
       } catch { alert("Backup non valido."); }
@@ -165,87 +143,146 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 max-w-4xl mx-auto">
       
       {/* 1. Sincronizzazione Cloud */}
-      <div className="bg-indigo-900 text-white p-6 md:p-10 rounded-[32px] border border-white/10 shadow-xl relative overflow-hidden">
+      <div className="bg-indigo-900 text-white p-6 md:p-10 rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10"><Cloud className="w-32 h-32" /></div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-6 flex items-center gap-2">
-          <Cloud className="w-4 h-4" /> Sincronizzazione Cloud
-        </h3>
+        
+        <div className="flex justify-between items-start mb-8 relative z-10">
+          <div>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-1 flex items-center gap-2">
+              <Cloud className="w-4 h-4" /> Sincronizzazione Cloud
+            </h3>
+            <p className="text-sm text-indigo-100/70 font-medium">Condividi le spese in tempo reale tra dispositivi.</p>
+          </div>
+          <button 
+            onClick={() => setShowGuide(!showGuide)}
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+          >
+            <HelpCircle className="w-3.5 h-3.5" /> {showGuide ? 'Chiudi Guida' : 'Come fare?'}
+          </button>
+        </div>
+
+        {showGuide && (
+          <div className="mb-8 p-6 bg-white/5 border border-white/10 rounded-2xl space-y-4 animate-in zoom-in-95">
+            <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300">Guida Rapida Supabase</h4>
+            <ol className="text-xs space-y-3 text-indigo-100/80">
+              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">1</span> <span>Vai su <strong>Supabase</strong> e crea un nuovo progetto.</span></li>
+              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">2</span> <span>Apri l'<strong>SQL Editor</strong> e incolla lo schema (tasto destro -> incolla).</span></li>
+              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">3</span> <span>Vai in <strong>Database -> Replication</strong> e abilita il Realtime per le tabelle.</span></li>
+              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">4</span> <span>Incolla qui sotto l'<strong>URL</strong> e la <strong>Anon Key</strong> (sez. API).</span></li>
+            </ol>
+            <a href="https://supabase.com/dashboard" target="_blank" className="inline-flex items-center gap-2 text-indigo-300 hover:text-white font-bold text-[10px] uppercase mt-2">
+              Vai al Dashboard <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        )}
+
         <div className="space-y-4 relative z-10">
-          <input type="text" placeholder="Supabase URL" value={tempSupabase.url} onChange={(e) => setTempSupabase({...tempSupabase, url: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-white/30 transition-all" />
-          <input type="password" placeholder="Anon Key" value={tempSupabase.key} onChange={(e) => setTempSupabase({...tempSupabase, key: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-white/30 transition-all" />
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button onClick={handleConnectSupabase} disabled={isSyncing} className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${settings.supabase?.connected ? 'bg-emerald-500 text-white' : 'bg-white text-indigo-900'}`}>{isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}{settings.supabase?.connected ? 'Database Collegato' : 'Collega Database'}</button>
-            {settings.supabase?.connected && <button onClick={() => db.syncLocalToCloud().then(s => alert(s ? "Sincronizzato!" : "Errore"))} className="bg-indigo-700 px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-white/10">Sincronizza Locali</button>}
+          <div className="relative group">
+            <Database className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+            <input type="text" placeholder="Supabase Project URL" value={tempSupabase.url} onChange={(e) => setTempSupabase({...tempSupabase, url: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-2xl pl-12 pr-5 py-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-white/20" />
           </div>
-        </div>
-        <div className="mt-8 pt-8 border-t border-white/10">
-          <div className="flex flex-col md:flex-row gap-3">
-            <button onClick={generateSyncCode} className="flex items-center gap-2 bg-white/5 border border-white/10 px-5 py-3 rounded-xl text-xs font-bold transition-all"><Copy className="w-4 h-4" /> Copia Config</button>
-            <div className="flex-1 flex gap-2">
-              <input type="text" placeholder="Incolla codice..." value={syncCode} onChange={(e) => setSyncCode(e.target.value)} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs outline-none" />
-              <button onClick={importSyncCode} className="bg-indigo-500 px-4 py-3 rounded-xl text-xs font-bold">Importa</button>
-            </div>
+          <div className="relative group">
+            <Key className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+            <input type="password" placeholder="Supabase Anon Key" value={tempSupabase.key} onChange={(e) => setTempSupabase({...tempSupabase, key: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-2xl pl-12 pr-5 py-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-white/20" />
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button 
+              onClick={handleConnectSupabase} 
+              disabled={isSyncing} 
+              className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl transition-all active:scale-95 ${
+                settings.supabase?.connected ? 'bg-emerald-500 text-white' : 'bg-white text-indigo-900'
+              }`}
+            >
+              {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : settings.supabase?.connected ? <CheckCircle2 className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+              {settings.supabase?.connected ? 'Configurazione Salvata' : 'Collega e Attiva Realtime'}
+            </button>
+            
+            {settings.supabase?.connected && (
+              <button 
+                onClick={() => {
+                  setIsSyncing(true);
+                  db.syncLocalToCloud().then(s => {
+                    setIsSyncing(false);
+                    alert(s ? "Sincronizzazione completata!" : "Errore durante la sincronizzazione.");
+                  });
+                }} 
+                className="bg-indigo-700/50 hover:bg-indigo-700 text-white px-6 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest border border-white/10 transition-all flex items-center justify-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                Forza Sincro
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 2. Guida Installazione Smartphone */}
-      <div className="bg-white p-6 md:p-10 rounded-[32px] border border-indigo-100 shadow-sm overflow-hidden relative group">
-        <div className="absolute -right-6 -top-6 text-indigo-50/50 group-hover:scale-110 transition-transform"><Smartphone className="w-32 h-32" /></div>
-        <div className="absolute top-6 right-6 flex items-center gap-1 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest animate-bounce">
-          <Sparkles className="w-3 h-3" /> Icona Attiva
-        </div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-6 flex items-center gap-2 relative z-10">
-          <Smartphone className="w-4 h-4" /> Usalo come un'App
+      {/* 2. Gestione Utenti e Saldi */}
+      <div className="bg-white p-6 md:p-10 rounded-[32px] border border-slate-100 shadow-sm relative overflow-hidden">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
+          <UserPlus className="w-4 h-4 text-indigo-500" /> Utenti e Saldi Iniziali
         </h3>
-        <div className="space-y-6 relative z-10">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 font-black">1</div>
-            <div>
-              <p className="text-sm font-bold text-slate-800">Su iPhone (Safari)</p>
-              <p className="text-xs text-slate-500 mt-1">Tocca l'icona <Share className="w-3 h-3 inline-block mx-1" /> Condividi e seleziona <strong>"Aggiungi alla schermata Home"</strong>.</p>
-              <p className="text-[10px] text-indigo-500 mt-1 font-medium italic">Verrà creata un'icona BenefitSync professionale.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 font-black">2</div>
-            <div>
-              <p className="text-sm font-bold text-slate-800">Su Android (Chrome)</p>
-              <p className="text-xs text-slate-500 mt-1">Tocca i tre puntini in alto a destra e seleziona <strong>"Installa app"</strong> o <strong>"Aggiungi a home"</strong>.</p>
-            </div>
-          </div>
+        
+        <div className="relative mb-8">
+          <input 
+            type="text" 
+            value={newUtente} 
+            onChange={(e) => setNewUtente(e.target.value)} 
+            placeholder="Aggiungi utente (es. Luca)..." 
+            onKeyDown={(e) => e.key === 'Enter' && addUtente()} 
+            className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all pr-16" 
+          />
+          <button onClick={addUtente} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-3 rounded-xl shadow-lg hover:bg-indigo-700 transition-all"><Plus className="w-5 h-5" /></button>
         </div>
-      </div>
 
-      <div className="bg-white/50 backdrop-blur-md p-6 md:p-10 rounded-[32px] border border-white shadow-sm">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 px-1">Gestione Utenti</h3>
-        <div className="relative mb-6">
-          <input type="text" value={newUtente} onChange={(e) => setNewUtente(e.target.value)} placeholder="Aggiungi utente..." onKeyDown={(e) => e.key === 'Enter' && addUtente()} className="w-full bg-slate-100/50 border border-slate-200/50 rounded-2xl px-6 py-4 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all pr-16" />
-          <button onClick={addUtente} className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2.5 rounded-xl shadow-lg"><UserPlus className="w-5 h-5" /></button>
-        </div>
         <div className="space-y-4">
           {settings.utenti.map(u => (
-            <div key={u} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 group shadow-sm transition-all hover:border-indigo-100">
-              <div className="flex items-center gap-3 flex-1">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-xs ${u === 'Luca' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}>{u[0]}</div>
-                {editingUtente?.original === u ? (
-                  <input autoFocus value={editingUtente.current} onChange={(e) => setEditingUtente({...editingUtente, current: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && renameUtente()} onBlur={renameUtente} className="font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded outline-none w-full" />
-                ) : <span className="font-bold text-slate-700">{u}</span>}
+            <div key={u} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100 group transition-all hover:border-indigo-200">
+              <div className="flex items-center gap-4 mb-4 sm:mb-0">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm shadow-sm ${
+                  u === 'Luca' ? 'bg-blue-600 text-white' : u === 'Federica' ? 'bg-pink-600 text-white' : 'bg-slate-700 text-white'
+                }`}>
+                  {u[0].toUpperCase()}
+                </div>
+                <div>
+                  {editingUtente?.original === u ? (
+                    <input 
+                      autoFocus 
+                      value={editingUtente.current} 
+                      onChange={(e) => setEditingUtente({...editingUtente, current: e.target.value})} 
+                      onKeyDown={(e) => e.key === 'Enter' && renameUtente()} 
+                      onBlur={renameUtente} 
+                      className="font-black text-slate-800 bg-white px-3 py-1 rounded-lg outline-none border-2 border-indigo-200" 
+                    />
+                  ) : (
+                    <div className="flex flex-col">
+                      <span className="font-black text-slate-800 text-lg tracking-tight">{u}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Profilo Utente</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-end px-4 py-2 bg-indigo-50/50 border border-indigo-100/50 rounded-xl min-w-[120px]">
-                  <span className="text-[8px] font-black uppercase text-indigo-400 mb-0.5 tracking-wider">Già spesi</span>
+
+              <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="flex flex-col items-end px-5 py-2.5 bg-white border border-slate-200 rounded-2xl shadow-sm group-hover:border-indigo-200 transition-colors">
+                  <span className="text-[9px] font-black uppercase text-slate-400 mb-0.5 tracking-wider">Saldi già spesi (€)</span>
                   <div className="flex items-center gap-1">
-                    <input type="number" step="0.01" value={settings.saldiIniziali?.[u] || ''} onChange={(e) => handleSaldoChange(u, e.target.value)} className="bg-transparent font-black text-indigo-700 outline-none w-20 text-right text-sm" />
-                    <span className="text-sm font-black text-indigo-700">€</span>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      value={settings.saldiIniziali?.[u] || ''} 
+                      onChange={(e) => handleSaldoChange(u, e.target.value)} 
+                      className="bg-transparent font-black text-slate-800 outline-none w-24 text-right text-base" 
+                      placeholder="0.00"
+                    />
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => setEditingUtente({ original: u, current: u })} className="p-2 text-slate-300 hover:text-indigo-600"><Pencil className="w-4 h-4" /></button>
-                  <button onClick={() => removeUtente(u)} className="p-2 text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => setEditingUtente({ original: u, current: u })} className="p-3 text-slate-300 hover:text-indigo-600 hover:bg-white rounded-xl transition-all"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => removeUtente(u)} className="p-3 text-slate-300 hover:text-red-500 hover:bg-white rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             </div>
@@ -253,20 +290,32 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
         </div>
       </div>
 
-      <div className="bg-white/50 backdrop-blur-md p-6 md:p-10 rounded-[32px] border border-white shadow-sm">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 px-1">Gestione Categorie</h3>
-        <div className="relative mb-6">
-          <input type="text" value={newCategoria} onChange={(e) => setNewCategoria(e.target.value)} placeholder="Aggiungi categoria (es. Amazon, Sport)..." onKeyDown={(e) => e.key === 'Enter' && addCategoria()} className="w-full bg-slate-100/50 border border-slate-200/50 rounded-2xl px-6 py-4 font-medium text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all pr-16" />
-          <button onClick={addCategoria} className="absolute right-2 top-1/2 -translate-y-1/2 bg-emerald-600 text-white p-2.5 rounded-xl shadow-lg"><FolderPlus className="w-5 h-5" /></button>
+      {/* 3. Gestione Categorie */}
+      <div className="bg-white p-6 md:p-10 rounded-[32px] border border-slate-100 shadow-sm">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2 px-1">
+          <Tag className="w-4 h-4 text-emerald-500" /> Categorie Spesa
+        </h3>
+        <div className="relative mb-8">
+          <input 
+            type="text" 
+            value={newCategoria} 
+            onChange={(e) => setNewCategoria(e.target.value)} 
+            placeholder="Esempio: Netflix, Amazon, Palestra..." 
+            onKeyDown={(e) => e.key === 'Enter' && addCategoria()} 
+            className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all pr-16" 
+          />
+          <button onClick={addCategoria} className="absolute right-2 top-1/2 -translate-y-1/2 bg-emerald-600 text-white p-3 rounded-xl shadow-lg hover:bg-emerald-700 transition-all"><FolderPlus className="w-5 h-5" /></button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {settings.categorie.map(c => (
-            <div key={c} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 group shadow-sm transition-all hover:border-emerald-100">
-              <div className="flex items-center gap-3 flex-1">
-                <Tag className="w-4 h-4 text-emerald-500 shrink-0" />
+            <div key={c} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group transition-all hover:border-emerald-200">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <Tag className="w-4 h-4" />
+                </div>
                 {editingCategoria?.original === c ? (
-                  <input autoFocus value={editingCategoria.current} onChange={(e) => setEditingCategoria({...editingCategoria, current: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && renameCategoria()} onBlur={renameCategoria} className="font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded outline-none w-full text-sm" />
-                ) : <span className="font-bold text-slate-700 text-sm">{c}</span>}
+                  <input autoFocus value={editingCategoria.current} onChange={(e) => setEditingCategoria({...editingCategoria, current: e.target.value})} onKeyDown={(e) => e.key === 'Enter' && renameCategoria()} onBlur={renameCategoria} className="font-bold text-slate-700 bg-white px-2 py-1 rounded outline-none w-full border border-emerald-200" />
+                ) : <span className="font-bold text-slate-700">{c}</span>}
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => setEditingCategoria({ original: c, current: c })} className="p-2 text-slate-300 hover:text-emerald-600"><Pencil className="w-3.5 h-3.5" /></button>
@@ -277,18 +326,43 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
         </div>
       </div>
 
-      <div className="bg-slate-900 text-white p-6 md:p-10 rounded-[32px] border border-slate-800 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-5"><Database className="w-32 h-32" /></div>
-        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
-          <Database className="w-4 h-4" /> Archivio e Backup
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-          <button onClick={handleExport} className="flex flex-col items-start gap-4 p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all text-left group"><div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform"><Download className="w-6 h-6" /></div><div><p className="font-bold text-sm mb-1">Esporta Dati</p><p className="text-[10px] text-slate-400 font-medium">Scarica un file JSON con tutte le spese e le configurazioni.</p></div></button>
-          <button onClick={handleImportClick} className="flex flex-col items-start gap-4 p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all text-left group"><div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform"><Upload className="w-6 h-6" /></div><div><p className="font-bold text-sm mb-1">Importa Backup</p><p className="text-[10px] text-slate-400 font-medium">Carica un file JSON per ripristinare i dati (sovrascrive tutto).</p></div></button>
+      {/* 4. Backup e Installazione */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-slate-900 text-white p-8 rounded-[32px] border border-slate-800 shadow-xl flex flex-col justify-between">
+          <div>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center gap-2">
+              <Database className="w-4 h-4" /> Esporta & Importa
+            </h3>
+            <p className="text-xs text-slate-400 mb-8 leading-relaxed">Scarica una copia dei tuoi dati sul telefono per sicurezza o per caricarli su un altro dispositivo.</p>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={handleExport} className="flex-1 bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col items-center gap-2 transition-all">
+              <Download className="w-6 h-6 text-indigo-400" />
+              <span className="text-[9px] font-black uppercase">Backup</span>
+            </button>
+            <button onClick={handleImportClick} className="flex-1 bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col items-center gap-2 transition-all">
+              <Upload className="w-6 h-6 text-emerald-400" />
+              <span className="text-[9px] font-black uppercase">Ripristina</span>
+            </button>
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+          </div>
         </div>
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
-        <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3"><AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" /><p className="text-[9px] text-amber-200/70 font-medium leading-relaxed uppercase tracking-wider">Consiglio: Effettua un backup settimanale per sicurezza. I dati importati sostituiranno interamente quelli presenti sul dispositivo.</p></div>
+
+        <div className="bg-white p-8 rounded-[32px] border border-indigo-50 shadow-sm flex flex-col justify-between relative group">
+          <div className="absolute -right-4 -top-4 text-indigo-50 group-hover:scale-110 transition-transform"><Smartphone className="w-24 h-24" /></div>
+          <div>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 mb-6 flex items-center gap-2">
+              <Smartphone className="w-4 h-4" /> Versione Web App
+            </h3>
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed">Aggiungi BenefitSync alla schermata Home del tuo iPhone o Android per usarlo come un'App nativa a tutto schermo.</p>
+          </div>
+          <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-2xl">
+             <Share className="w-5 h-5 text-indigo-600" />
+             <span className="text-[10px] font-bold text-indigo-900 leading-tight">Usa il tasto "Condividi" e poi "Aggiungi alla Home"</span>
+          </div>
+        </div>
       </div>
+
     </div>
   );
 };

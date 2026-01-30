@@ -8,24 +8,16 @@ export const aiService = {
    */
   parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
     try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) {
-        throw new Error("API Key mancante nel sistema.");
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
+      // Inizializziamo l'istanza subito prima dell'uso per garantire l'uso della chiave più recente
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: [{ 
-          parts: [{ 
-            text: `Estrai i dati di spesa dalla frase e restituisci SOLO JSON.
-            Frase: "${input}"
-            Oggi è: ${new Date().toLocaleDateString('it-IT')}.
-            Regole: utente (Luca o Federica), tipologia (Spesa, Welfare, Benzina), importo (numero), data (YYYY-MM-DD), note (stringa).` 
-          }] 
-        }],
+        contents: `Estrai i dati di spesa dalla seguente frase e restituisci ESCLUSIVAMENTE un oggetto JSON valido. 
+        Oggi è il ${new Date().toLocaleDateString('it-IT')}.
+        Frase: "${input}"`,
         config: {
+          systemInstruction: "Sei un estrattore di dati finanziari. Estrai: utente (Luca o Federica), tipologia (Spesa, Welfare o Benzina), importo (numero decimale), data (formato YYYY-MM-DD), note (descrizione breve). Restituisci solo il JSON.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -44,14 +36,15 @@ export const aiService = {
       const text = response.text;
       if (!text) return null;
 
-      try {
-        return JSON.parse(text.trim());
-      } catch (e) {
-        console.error("Errore JSON IA:", text);
-        return null;
+      return JSON.parse(text.trim());
+    } catch (error: any) {
+      console.error("AI Error Details:", error);
+      
+      // Se l'errore indica che l'entità non è stata trovata, potrebbe essere necessaria la selezione della chiave
+      if (error.message?.includes("Requested entity was not found")) {
+        throw new Error("KEY_NOT_FOUND");
       }
-    } catch (error) {
-      console.error("AI Error:", error);
+      
       throw error;
     }
   },
@@ -61,31 +54,26 @@ export const aiService = {
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
     try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) return "Chiave API non configurata.";
-
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const dataSummary = history.map(s => 
         `${s.data}: ${s.utente} ha speso ${s.importo}€ in ${s.tipologia}${s.note ? ' (' + s.note + ')' : ''}`
       ).join('\n');
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: [{ 
-          parts: [{ 
-            text: `Sei un esperto analista finanziario personale per la coppia Luca e Federica. 
-            Basandoti sui seguenti dati di spesa:
-            ${dataSummary}
-            
-            Rispondi in modo cordiale e conciso alla seguente domanda dell'utente: "${query}"` 
-          }] 
-        }]
+        contents: `Basandoti su questi dati di spesa:\n${dataSummary}\n\nRispondi alla domanda: "${query}"`,
+        config: {
+          systemInstruction: "Sei un assistente finanziario per Luca e Federica. Rispondi in modo conciso e amichevole in italiano."
+        }
       });
 
-      return response.text || "Spiacente, non ho potuto generare un'analisi.";
-    } catch (error) {
+      return response.text || "Non ho potuto generare un'analisi.";
+    } catch (error: any) {
       console.error("AI Analysis Error:", error);
-      return "Si è verificato un errore durante l'analisi dei dati.";
+      if (error.message?.includes("Requested entity was not found")) {
+        return "Errore: Progetto API non trovato. Assicurati di aver selezionato una chiave valida.";
+      }
+      return "Si è verificato un errore durante l'analisi.";
     }
   }
 };

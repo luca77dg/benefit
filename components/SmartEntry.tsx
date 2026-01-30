@@ -1,6 +1,6 @@
 
+import { Sparkles, Loader2, Plus, AlertCircle, Mic, MicOff, Keyboard, X, Key } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Loader2, Plus, AlertCircle, Mic, MicOff, Keyboard, X } from 'lucide-react';
 import { aiService } from '../services/geminiService';
 import { NewSpesa, Utente, Tipologia } from '../types';
 
@@ -45,10 +45,26 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
     setIsLoading(true);
     try {
       const result = await aiService.parseSmartEntry(trimmedInput);
-      if (result) setPreview(result);
-      else alert("Riprova a scrivere i dettagli.");
-    } catch (error) {
-      alert("Errore AI. Controlla la connessione.");
+      if (result) {
+        setPreview(result);
+      } else {
+        alert("Non sono riuscito a interpretare la frase. Prova a essere più specifico (es. 'Luca 10 euro benzina')");
+      }
+    } catch (error: any) {
+      if (error.message === "KEY_NOT_FOUND") {
+        if (confirm("L'API richiede la selezione di un progetto valido. Vuoi selezionare la tua chiave ora?")) {
+          // @ts-ignore
+          if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+            // @ts-ignore
+            window.aistudio.openSelectKey();
+          } else {
+            alert("Funzione di selezione chiave non disponibile in questo ambiente.");
+          }
+        }
+      } else {
+        alert("Errore di connessione con l'IA. Riprova tra poco.");
+      }
+      console.error("Detailed catch:", error);
     } finally {
       setIsLoading(false);
     }
@@ -69,9 +85,25 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
           <div className="bg-white/20 p-1.5 rounded-lg">
             <Sparkles className="w-4 h-4 text-yellow-300" />
           </div>
-          <h3 className="font-black text-sm uppercase tracking-widest">Smart Entry</h3>
+          <h3 className="font-black text-sm uppercase tracking-widest">Smart Entry IA</h3>
         </div>
-        {isListening && <div className="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div> In ascolto</div>}
+        <div className="flex items-center gap-3">
+          {isListening && (
+            <div className="text-[9px] font-black uppercase tracking-widest animate-pulse flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 bg-red-400 rounded-full"></div> In ascolto
+            </div>
+          )}
+          <button 
+            onClick={async () => {
+              // @ts-ignore
+              if (window.aistudio) window.aistudio.openSelectKey();
+            }}
+            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+            title="Seleziona Chiave API"
+          >
+            <Key className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       
       <div className="relative group">
@@ -101,7 +133,11 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
           <div className="grid grid-cols-2 gap-3 mb-5">
             <div className="bg-black/20 p-3 rounded-xl">
               <label className="opacity-50 block text-[8px] font-black uppercase mb-1">Chi</label>
-              <select value={preview.utente || ''} onChange={(e) => setPreview({...preview, utente: e.target.value as Utente})} className="bg-transparent font-bold w-full outline-none text-sm appearance-none cursor-pointer">
+              <select 
+                value={preview.utente || ''} 
+                onChange={(e) => setPreview({...preview, utente: e.target.value as Utente})} 
+                className="bg-transparent font-bold w-full outline-none text-sm appearance-none cursor-pointer"
+              >
                 <option value="" disabled className="text-slate-800">Scegli</option>
                 <option value="Luca" className="text-slate-800">Luca</option>
                 <option value="Federica" className="text-slate-800">Federica</option>
@@ -109,7 +145,12 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd }) => {
             </div>
             <div className="bg-black/20 p-3 rounded-xl">
               <label className="opacity-50 block text-[8px] font-black uppercase mb-1">Importo</label>
-              <input type="number" step="0.01" value={preview.importo} onChange={(e) => setPreview({...preview, importo: parseFloat(e.target.value)})} className="bg-transparent font-bold w-full outline-none text-sm" />
+              <input 
+                type="number" step="0.01" 
+                value={preview.importo} 
+                onChange={(e) => setPreview({...preview, importo: parseFloat(e.target.value)})} 
+                className="bg-transparent font-bold w-full outline-none text-sm" 
+              />
             </div>
           </div>
           

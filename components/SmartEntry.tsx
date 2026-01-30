@@ -10,7 +10,10 @@ interface SmartEntryProps {
 }
 
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+  return value.toLocaleString('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }) + ' €';
 };
 
 export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd, settings }) => {

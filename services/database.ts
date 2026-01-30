@@ -3,7 +3,6 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Spesa, NewSpesa, Budget, AppSettings } from '../types';
 
 const STORAGE_KEY = 'benefits_sync_data';
-const BUDGET_KEY = 'benefits_sync_budget';
 const SETTINGS_KEY = 'benefits_sync_settings';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -15,96 +14,113 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 let supabaseInstance: SupabaseClient | null = null;
 
-const getSupabase = async () => {
-  if (supabaseInstance) return supabaseInstance;
-  const settings = await db.getSettings();
-  if (settings.supabase?.connected && settings.supabase.url && settings.supabase.key) {
-    supabaseInstance = createClient(settings.supabase.url, settings.supabase.key);
-    return supabaseInstance;
-  }
-  return null;
-};
-
 export const db = {
+  getSupabase: async () => {
+    if (supabaseInstance) return supabaseInstance;
+    const settings = await db.getSettings();
+    if (settings.supabase?.connected && settings.supabase.url && settings.supabase.key) {
+      supabaseInstance = createClient(settings.supabase.url, settings.supabase.key);
+      return supabaseInstance;
+    }
+    return null;
+  },
+
   getSpese: async (): Promise<Spesa[]> => {
-    const sb = await getSupabase();
-    if (sb) {
-      const { data, error } = await sb.from('spese').select('*').order('data', { ascending: false });
-      if (!error && data) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        return data as Spesa[];
+    try {
+      const sb = await db.getSupabase();
+      if (sb) {
+        const { data, error } = await sb.from('spese').select('*').order('data', { ascending: false });
+        if (!error && data) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          return data as Spesa[];
+        }
       }
+    } catch (e) {
+      console.warn("Offline: recupero dati locali");
     }
     const local = localStorage.getItem(STORAGE_KEY);
     return local ? JSON.parse(local) : [];
   },
 
-  addSpesa: async (newSpesa: NewSpesa): Promise<Spesa> => {
-    const sb = await getSupabase();
+  addSpesa: async (newSpesa: NewSpesa): Promise<{ entry: Spesa, synced: boolean }> => {
     const entry: Spesa = {
       ...newSpesa,
       id: Math.random().toString(36).substr(2, 9),
       creato_il: new Date().toISOString(),
     };
 
-    if (sb) {
-      const { data, error } = await sb.from('spese').insert([{
-        utente: entry.utente,
-        tipologia: entry.tipologia,
-        importo: entry.importo,
-        data: entry.data,
-        note: entry.note
-      }]).select();
-      
-      if (!error && data?.[0]) {
-        const syncedEntry = data[0] as Spesa;
-        const current = await db.getSpese();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([syncedEntry, ...current]));
-        return syncedEntry;
+    let synced = false;
+    try {
+      const sb = await db.getSupabase();
+      if (sb) {
+        const { data, error } = await sb.from('spese').insert([{
+          utente: entry.utente,
+          tipologia: entry.tipologia,
+          importo: entry.importo,
+          data: entry.data,
+          note: entry.note
+        }]).select();
+        
+        if (!error && data?.[0]) {
+          synced = true;
+          // Sostituiamo l'ID locale con quello reale di Supabase
+          entry.id = data[0].id;
+          entry.creato_il = data[0].creato_il;
+        }
       }
+    } catch (e) {
+      console.warn("Salvataggio solo locale");
     }
 
     const current = await db.getSpese();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([entry, ...current]));
-    return entry;
+    return { entry, synced };
   },
 
-  updateSpesa: async (id: string, updates: Partial<Spesa>): Promise<Spesa> => {
-    const sb = await getSupabase();
-    if (sb) {
-      await sb.from('spese').update(updates).eq('id', id);
-    }
+  updateSpesa: async (id: string, updates: Partial<Spesa>): Promise<boolean> => {
+    let synced = false;
+    try {
+      const sb = await db.getSupabase();
+      if (sb) {
+        const { error } = await sb.from('spese').update(updates).eq('id', id);
+        synced = !error;
+      }
+    } catch (e) {}
     
     const current = await db.getSpese();
     const index = current.findIndex(s => s.id === id);
     if (index !== -1) {
       current[index] = { ...current[index], ...updates };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-      return current[index];
     }
-    throw new Error('Expense not found');
+    return synced;
   },
 
-  deleteSpesa: async (id: string): Promise<void> => {
-    const sb = await getSupabase();
-    if (sb) {
-      await sb.from('spese').delete().eq('id', id);
-    }
+  deleteSpesa: async (id: string): Promise<boolean> => {
+    let synced = false;
+    try {
+      const sb = await db.getSupabase();
+      if (sb) {
+        const { error } = await sb.from('spese').delete().eq('id', id);
+        synced = !error;
+      }
+    } catch (e) {}
+    
     const current = await db.getSpese();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current.filter(s => s.id !== id)));
+    return synced;
   },
 
   getSettings: async (): Promise<AppSettings> => {
     const data = localStorage.getItem(SETTINGS_KEY);
     if (!data) return DEFAULT_SETTINGS;
     const settings = JSON.parse(data);
-    if (!settings.supabase) settings.supabase = DEFAULT_SETTINGS.supabase;
     return settings;
   },
 
   saveSettings: async (settings: AppSettings): Promise<void> => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    supabaseInstance = null; // Forza la riconnessione con le nuove credenziali
+    supabaseInstance = null; 
   },
 
   importAllData: async (data: { settings: AppSettings, spese: Spesa[] }): Promise<void> => {
@@ -113,21 +129,30 @@ export const db = {
     supabaseInstance = null;
   },
 
+  // Fix: Aggiunta del metodo syncLocalToCloud per permettere la sincronizzazione manuale dei dati locali su Supabase.
   syncLocalToCloud: async (): Promise<boolean> => {
-    const sb = await getSupabase();
-    if (!sb) return false;
-    const local = await db.getSpese();
-    if (local.length === 0) return true;
+    try {
+      const sb = await db.getSupabase();
+      if (!sb) return false;
 
-    const payload = local.map(s => ({
-      utente: s.utente,
-      tipologia: s.tipologia,
-      importo: s.importo,
-      data: s.data,
-      note: s.note
-    }));
+      const local = localStorage.getItem(STORAGE_KEY);
+      if (!local) return true;
+      const localSpese: Spesa[] = JSON.parse(local);
 
-    const { error } = await sb.from('spese').insert(payload);
-    return !error;
+      if (localSpese.length === 0) return true;
+
+      // Utilizza upsert per sincronizzare i record. Supabase gestisce l'inserimento o l'aggiornamento.
+      const { error } = await sb.from('spese').upsert(localSpese);
+      
+      if (!error) {
+        // Aggiorna la cache locale con i dati sincronizzati dal cloud
+        await db.getSpese();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Sync error:", e);
+      return false;
+    }
   }
 };

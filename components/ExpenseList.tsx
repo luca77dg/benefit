@@ -10,7 +10,10 @@ interface ExpenseListProps {
 }
 
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+  return value.toLocaleString('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }) + ' €';
 };
 
 const CategoryIcon = ({ type, className }: { type: string, className?: string }) => {

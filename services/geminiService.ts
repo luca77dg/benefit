@@ -5,20 +5,20 @@ import { Spesa, NewSpesa, AppSettings } from "../types";
 export const aiService = {
   /**
    * Smart Entry: Analizza il linguaggio naturale per creare un oggetto spesa.
+   * Utilizza gemini-3-flash-preview per task di testo base.
    */
   parseSmartEntry: async (input: string, settings: AppSettings): Promise<Partial<NewSpesa> | null> => {
+    // Utilizzo della chiave API dall'ambiente come richiesto dalle linee guida
     const apiKey = process.env.API_KEY;
-    
-    if (!apiKey || apiKey === "undefined" || apiKey.length < 10) {
-      console.error("ERRORE: API_KEY non valida o mancante.");
-      throw new Error("CHIAVE_MANCANTE");
-    }
+    if (!apiKey) throw new Error("API_KEY mancante");
 
     try {
+      // Inizializzazione corretta del client SDK
       const ai = new GoogleGenAI({ apiKey });
       
       const response = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
+        // Utilizzo del modello raccomandato per task di testo base (es. summarization, extraction)
+        model: 'gemini-3-flash-preview',
         contents: `Analizza questa spesa e convertila in JSON: "${input}". Oggi è il ${new Date().toLocaleDateString('it-IT')}.`,
         config: {
           systemInstruction: `Sei un assistente per la gestione spese. 
@@ -42,6 +42,7 @@ export const aiService = {
         }
       });
 
+      // Accesso alla proprietà .text della risposta (non è un metodo)
       const text = response.text;
       if (!text) throw new Error("Risposta vuota");
       return JSON.parse(text.trim());
@@ -53,15 +54,17 @@ export const aiService = {
 
   /**
    * AI Assistant: Analisi dati storici.
+   * Utilizza gemini-3-pro-preview per compiti di reasoning più complessi.
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
     const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === "undefined") return "Errore: Chiave non configurata.";
+    if (!apiKey) return "Errore: Chiave non configurata.";
 
     try {
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        // Utilizzo del modello gemini-3-pro-preview per analisi avanzata dei dati storici
+        model: 'gemini-3-pro-preview',
         contents: `Dati: ${JSON.stringify(history)}. Domanda: ${query}`,
         config: {
           systemInstruction: "Sei un analista finanziario amichevole. Rispondi in italiano in modo sintetico e basandoti esclusivamente sui dati forniti."
@@ -79,7 +82,7 @@ export const aiService = {
    */
   generateSpeech: async (text: string): Promise<string | undefined> => {
     const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey === "undefined") return undefined;
+    if (!apiKey) return undefined;
 
     try {
       const ai = new GoogleGenAI({ apiKey });
@@ -90,12 +93,13 @@ export const aiService = {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore ha un tono chiaro ed equilibrato
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
             },
           },
         },
       });
 
+      // Estrazione dei dati audio in base64 dalla risposta
       return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     } catch (error) {
       console.error("TTS Error:", error);

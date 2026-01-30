@@ -7,13 +7,15 @@ import { ExpenseList } from './components/ExpenseList';
 import { SmartEntry } from './components/SmartEntry';
 import { AIAssistant } from './components/AIAssistant';
 import { Settings } from './components/Settings';
-import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, ArrowUpRight, Sparkles, Settings as SettingsIcon } from 'lucide-react';
+import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, ArrowUpRight, Sparkles, Settings as SettingsIcon, Cloud, CloudOff, Check } from 'lucide-react';
 
 const App: React.FC = () => {
   const [spese, setSpese] = useState<Spesa[]>([]);
   const [settings, setSettings] = useState<AppSettings>({ utenti: [], categorie: [] });
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list' | 'ai' | 'settings'>('dashboard');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncSuccess, setLastSyncSuccess] = useState(false);
   const [editingSpesaId, setEditingSpesaId] = useState<string | null>(null);
 
   const [formState, setFormState] = useState<NewSpesa>({
@@ -29,15 +31,23 @@ const App: React.FC = () => {
   }, []);
 
   const loadData = async () => {
-    const data = await db.getSpese();
+    setIsSyncing(true);
     const currentSettings = await db.getSettings();
-    setSpese(data);
     setSettings(currentSettings);
+    
+    const data = await db.getSpese();
+    setSpese(data);
+    
+    // Verifichiamo se siamo connessi al cloud
+    const sb = await db.getSupabase();
+    setLastSyncSuccess(!!sb && currentSettings.supabase?.connected);
+    setIsSyncing(false);
   };
 
   const handleUpdateSettings = async (newSettings: AppSettings) => {
     await db.saveSettings(newSettings);
     setSettings(newSettings);
+    await loadData();
   };
 
   const handleOpenAdd = () => {
@@ -66,26 +76,48 @@ const App: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSyncing(true);
     if (editingSpesaId) {
-      await db.updateSpesa(editingSpesaId, formState);
+      const success = await db.updateSpesa(editingSpesaId, formState);
+      setLastSyncSuccess(success);
     } else {
-      await db.addSpesa(formState);
+      const { synced } = await db.addSpesa(formState);
+      setLastSyncSuccess(synced);
     }
     await loadData();
     setIsFormOpen(false);
   };
 
   const handleAddFromSmartEntry = async (expense: NewSpesa) => {
-    await db.addSpesa(expense);
+    setIsSyncing(true);
+    const { synced } = await db.addSpesa(expense);
+    setLastSyncSuccess(synced);
     await loadData();
   };
 
   const handleDeleteExpense = async (id: string) => {
     if (confirm('Eliminare questa spesa?')) {
-      await db.deleteSpesa(id);
+      setIsSyncing(true);
+      const success = await db.deleteSpesa(id);
+      setLastSyncSuccess(success);
       await loadData();
     }
   };
+
+  const SyncStatus = () => (
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
+      {isSyncing ? (
+        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+      ) : lastSyncSuccess ? (
+        <Cloud className="w-3.5 h-3.5 text-emerald-500" />
+      ) : (
+        <CloudOff className="w-3.5 h-3.5 text-slate-300" />
+      )}
+      <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+        {isSyncing ? 'Sincronizzazione...' : lastSyncSuccess ? 'Cloud Attivo' : 'Modalità Locale'}
+      </span>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0 font-['Inter']">
@@ -96,6 +128,10 @@ const App: React.FC = () => {
             <Wallet className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">BenefitSync</h1>
+        </div>
+
+        <div className="mb-6">
+          <SyncStatus />
         </div>
 
         <div className="flex-1 space-y-1">
@@ -143,12 +179,17 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          <button 
-            onClick={handleOpenAdd}
-            className="md:hidden bg-indigo-600 text-white p-3 rounded-2xl shadow-lg active:scale-90 transition-transform"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:block">
+              <SyncStatus />
+            </div>
+            <button 
+              onClick={handleOpenAdd}
+              className="md:hidden bg-indigo-600 text-white p-3 rounded-2xl shadow-lg active:scale-90 transition-transform"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <div className="pb-8">
@@ -234,7 +275,8 @@ const App: React.FC = () => {
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setIsFormOpen(false)} className="flex-1 p-4 font-bold text-slate-400">Chiudi</button>
-                <button type="submit" className="flex-2 bg-indigo-600 text-white p-4 rounded-2xl font-bold shadow-lg">
+                <button type="submit" className="flex-2 bg-indigo-600 text-white p-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2">
+                  {isSyncing ? <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> : <Check className="w-5 h-5" />}
                   {editingSpesaId ? 'Aggiorna' : 'Salva'}
                 </button>
               </div>

@@ -9,7 +9,11 @@ interface DashboardProps {
 }
 
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+  // Utilizziamo toLocaleString per garantire il punto come separatore delle migliaia e la virgola per i decimali
+  return value.toLocaleString('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }) + ' €';
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {

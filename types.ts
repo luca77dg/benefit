@@ -14,10 +14,17 @@ export interface Spesa {
 
 export type NewSpesa = Omit<Spesa, 'id' | 'creato_il'>;
 
+export interface SupabaseConfig {
+  url: string;
+  key: string;
+  connected: boolean;
+}
+
 export interface AppSettings {
   utenti: string[];
   categorie: string[];
-  saldiIniziali?: Record<string, number>; // Mappa utente -> importo buoni già spesi
+  saldiIniziali?: Record<string, number>;
+  supabase?: SupabaseConfig;
 }
 
 export interface Budget {

@@ -2,14 +2,29 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Spesa, NewSpesa } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Helper per ottenere l'API KEY in modo sicuro nel browser
+const getSafeApiKey = (): string => {
+  try {
+    return (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const apiKey = getSafeApiKey();
 
 export const aiService = {
   /**
-   * Smart Entry: Parses natural language into an expense object.
+   * Smart Entry: Analizza il linguaggio naturale per creare un oggetto spesa.
    */
   parseSmartEntry: async (input: string): Promise<Partial<NewSpesa> | null> => {
+    if (!apiKey) {
+      console.warn("API Key mancante per Gemini. L'analisi Smart Entry non funzionerà.");
+      return null;
+    }
+
     try {
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Analizza questa frase in italiano e estrai i dati per una spesa.
@@ -40,10 +55,13 @@ export const aiService = {
   },
 
   /**
-   * AI Assistant: Provides analysis based on existing data.
+   * AI Assistant: Fornisce analisi basate sui dati esistenti.
    */
   getAnalysis: async (history: Spesa[], query: string): Promise<string> => {
+    if (!apiKey) return "Configura la tua API KEY di Google Gemini per attivare l'assistente IA.";
+
     try {
+      const ai = new GoogleGenAI({ apiKey });
       const dataSummary = history.map(s => 
         `${s.data}: ${s.utente} ha speso ${s.importo}€ in ${s.tipologia}${s.note ? ` (${s.note})` : ''}`
       ).join('\n');
@@ -62,7 +80,7 @@ export const aiService = {
       return response.text || "Mi dispiace, non sono riuscito a generare un'analisi.";
     } catch (error) {
       console.error("AI Analysis Error:", error);
-      return "Errore nella comunicazione con l'assistente IA.";
+      return "Errore nella comunicazione con l'assistente IA. Verifica la tua connessione o l'API Key.";
     }
   }
 };

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from './services/database';
-import { Spesa, NewSpesa, Budget } from './types';
+import { Spesa, NewSpesa } from './types';
 import { Dashboard } from './components/Dashboard';
 import { ExpenseList } from './components/ExpenseList';
 import { SmartEntry } from './components/SmartEntry';
@@ -10,7 +10,6 @@ import { PlusCircle, LayoutDashboard, List, MessageSquareCode, Wallet } from 'lu
 
 const App: React.FC = () => {
   const [spese, setSpese] = useState<Spesa[]>([]);
-  const [budget, setBudget] = useState<Budget>({ Luca: 200, Federica: 200 });
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list' | 'ai'>('dashboard');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [newExpense, setNewExpense] = useState<NewSpesa>({
@@ -27,14 +26,7 @@ const App: React.FC = () => {
 
   const loadData = async () => {
     const data = await db.getSpese();
-    const currentBudget = await db.getBudget();
     setSpese(data);
-    setBudget(currentBudget);
-  };
-
-  const handleUpdateBudget = async (newBudget: Budget) => {
-    await db.setBudget(newBudget);
-    setBudget(newBudget);
   };
 
   const handleAddExpense = async (expense: NewSpesa) => {
@@ -104,7 +96,7 @@ const App: React.FC = () => {
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-3xl font-black text-slate-800 tracking-tight">
-              {activeTab === 'dashboard' && 'Stato Benefit'}
+              {activeTab === 'dashboard' && 'Riepilogo Spese'}
               {activeTab === 'list' && 'Registro Transazioni'}
               {activeTab === 'ai' && 'Analista Gemini IA'}
             </h2>
@@ -125,11 +117,7 @@ const App: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="space-y-8">
             <SmartEntry onAdd={handleAddExpense} />
-            <Dashboard 
-              spese={spese} 
-              budget={budget} 
-              onUpdateBudget={handleUpdateBudget} 
-            />
+            <Dashboard spese={spese} />
           </div>
         )}
 
@@ -154,8 +142,8 @@ const App: React.FC = () => {
                 </h4>
                 <ul className="text-sm text-indigo-100 space-y-3">
                   <li className="bg-white/10 p-3 rounded-xl border border-white/10">"Chi ha speso di più questo mese?"</li>
-                  <li className="bg-white/10 p-3 rounded-xl border border-white/10">"Quanto budget resta a Federica?"</li>
-                  <li className="bg-white/10 p-3 rounded-xl border border-white/10">"Analizza la spesa benzina."</li>
+                  <li className="bg-white/10 p-3 rounded-xl border border-white/10">"Analizza la spesa benzina di Luca."</li>
+                  <li className="bg-white/10 p-3 rounded-xl border border-white/10">"Fai un confronto tra le categorie."</li>
                 </ul>
               </div>
             </div>

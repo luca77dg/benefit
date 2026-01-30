@@ -1,5 +1,7 @@
 {
   "name": "BenefitSync IA - Luca & Federica",
   "description": "A sophisticated management dashboard for tracking grocery, welfare, and fuel benefits for Luca and Federica, powered by Google Gemini AI for smart entry and insights.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

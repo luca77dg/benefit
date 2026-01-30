@@ -6,7 +6,7 @@ import { Dashboard } from './components/Dashboard';
 import { ExpenseList } from './components/ExpenseList';
 import { SmartEntry } from './components/SmartEntry';
 import { AIAssistant } from './components/AIAssistant';
-import { PlusCircle, LayoutDashboard, List, MessageSquareCode, Wallet } from 'lucide-react';
+import { PlusCircle, LayoutDashboard, List, MessageSquareCode, Wallet, Activity, ArrowUpRight, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
   const [spese, setSpese] = useState<Spesa[]>([]);
@@ -92,26 +92,44 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 p-6 md:p-10 max-w-6xl mx-auto w-full">
-        {/* Header */}
-        <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight">
-              {activeTab === 'dashboard' && 'Riepilogo Spese'}
-              {activeTab === 'list' && 'Registro Transazioni'}
-              {activeTab === 'ai' && 'Analista Gemini IA'}
-            </h2>
-            <p className="text-slate-500 font-medium">Monitoring per Luca & Federica</p>
+        {/* New Brand Header Logo */}
+        <div className="mb-12 animate-in fade-in zoom-in duration-1000">
+          <div className="flex items-center gap-6">
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+              <div className="relative w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-xl border border-slate-100 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-white"></div>
+                <div className="relative">
+                  <Activity className="w-8 h-8 text-indigo-600 absolute -top-1 -right-1 opacity-20" />
+                  <Wallet className="w-8 h-8 text-indigo-600 relative z-10" />
+                  <ArrowUpRight className="w-4 h-4 text-emerald-500 absolute -top-1 -right-1 animate-pulse" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-4xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-indigo-950 to-indigo-900">
+                  BenefitSync<span className="text-indigo-600">.</span>
+                </h2>
+                <div className="bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-indigo-400" />
+                  <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">IA Powered</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mt-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Luca</span>
+                </div>
+                <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-pink-500"></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Federica</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
-            <span className="flex items-center gap-2 text-xs font-bold text-blue-600">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-200"></span> LUCA
-            </span>
-            <div className="w-px h-4 bg-slate-200"></div>
-            <span className="flex items-center gap-2 text-xs font-bold text-pink-600">
-              <span className="w-2.5 h-2.5 rounded-full bg-pink-500 shadow-sm shadow-pink-200"></span> FEDERICA
-            </span>
-          </div>
-        </header>
+        </div>
 
         {/* Dynamic View */}
         {activeTab === 'dashboard' && (

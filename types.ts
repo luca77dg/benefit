@@ -14,6 +14,11 @@ export interface Spesa {
 
 export type NewSpesa = Omit<Spesa, 'id' | 'creato_il'>;
 
+export interface Budget {
+  Luca: number;
+  Federica: number;
+}
+
 export interface DashboardStats {
   totalLuca: number;
   totalFederica: number;

@@ -1,10 +1,8 @@
 
-import { Spesa, NewSpesa } from '../types';
+import { Spesa, NewSpesa, Budget } from '../types';
 
 const STORAGE_KEY = 'benefits_sync_data';
-
-// Note: In a real Next.js/Supabase app, these would be calls to the Supabase client.
-// Here we mock the behavior for the React environment.
+const BUDGET_KEY = 'benefits_sync_budget';
 
 export const db = {
   getSpese: async (): Promise<Spesa[]> => {
@@ -37,5 +35,14 @@ export const db = {
     const current = await db.getSpese();
     const filtered = current.filter(s => s.id !== id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  },
+
+  getBudget: async (): Promise<Budget> => {
+    const data = localStorage.getItem(BUDGET_KEY);
+    return data ? JSON.parse(data) : { Luca: 200, Federica: 200 };
+  },
+
+  setBudget: async (budget: Budget): Promise<void> => {
+    localStorage.setItem(BUDGET_KEY, JSON.stringify(budget));
   }
 };

@@ -9,6 +9,10 @@ interface ExpenseListProps {
   onEdit: (spesa: Spesa) => void;
 }
 
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+};
+
 const CategoryIcon = ({ type, className }: { type: string, className?: string }) => {
   switch (type) {
     case 'Spesa': return <ShoppingBag className={className} />;
@@ -31,7 +35,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete, onEdi
 
   return (
     <div className="space-y-3">
-      {/* Desktop Table Header */}
       <div className="hidden md:grid grid-cols-5 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
         <div>Data</div>
         <div>Utente</div>
@@ -42,7 +45,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete, onEdi
 
       {sortedSpese.map((s) => (
         <div key={s.id} className="bg-white p-4 md:px-6 md:py-4 rounded-2xl md:rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-          {/* Mobile Layout (Card) */}
           <div className="flex md:hidden items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
@@ -51,34 +53,23 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete, onEdi
                 <CategoryIcon type={s.tipologia} className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-sm font-black text-slate-800 tracking-tight">€{s.importo.toFixed(2)}</p>
+                <p className="text-sm font-black text-slate-800 tracking-tight">{formatCurrency(s.importo)}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
                     s.utente === 'Luca' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
                   }`}>{s.utente}</span>
-                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 uppercase text-[8px]">
+                  <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 uppercase">
                     <Calendar className="w-2.5 h-2.5" /> {new Date(s.data).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
                   </span>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button 
-                onClick={() => onEdit(s)}
-                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-indigo-600 active:bg-indigo-50 rounded-full transition-colors"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => onDelete(s.id)}
-                className="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-red-500 active:bg-red-50 rounded-full transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <button onClick={() => onEdit(s)} className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-indigo-600 active:bg-indigo-50 rounded-full transition-colors"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => onDelete(s.id)} className="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-red-500 active:bg-red-50 rounded-full transition-colors"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
 
-          {/* Desktop Layout (Row) */}
           <div className="hidden md:grid grid-cols-5 items-center">
             <div className="text-sm text-slate-500 font-medium">{new Date(s.data).toLocaleDateString('it-IT')}</div>
             <div>
@@ -93,21 +84,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ spese, onDelete, onEdi
               {s.tipologia}
             </div>
             <div className="text-right">
-              <span className="text-sm font-black text-slate-800">€{s.importo.toFixed(2)}</span>
+              <span className="text-sm font-black text-slate-800">{formatCurrency(s.importo)}</span>
             </div>
             <div className="text-right flex items-center justify-end gap-2 pr-2">
-              <button 
-                onClick={() => onEdit(s)} 
-                className="text-slate-300 hover:text-indigo-600 p-1.5 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-50 rounded-lg"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-              <button 
-                onClick={() => onDelete(s.id)} 
-                className="text-slate-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-50 rounded-lg"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              <button onClick={() => onEdit(s)} className="text-slate-300 hover:text-indigo-600 p-1.5 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-50 rounded-lg"><Pencil className="w-3.5 h-3.5" /></button>
+              <button onClick={() => onDelete(s.id)} className="text-slate-300 hover:text-red-500 p-1.5 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
           </div>
         </div>

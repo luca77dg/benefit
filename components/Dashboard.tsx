@@ -1,28 +1,29 @@
 
 import React, { useMemo } from 'react';
 import { Spesa, Utente, AppSettings } from '../types';
-import { Trophy, TrendingUp, User } from 'lucide-react';
+import { Trophy, User } from 'lucide-react';
 
 interface DashboardProps {
   spese: Spesa[];
   settings: AppSettings;
 }
 
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
   const stats = useMemo(() => {
-    // Inizializziamo il summary con i saldi iniziali (buoni già spesi)
     const summary: Record<string, number> = {
       total: 0
     };
 
-    // Prepariamo i totali per ogni utente registrato
     settings.utenti.forEach(u => {
       const saldoIniziale = settings.saldiIniziali?.[u] || 0;
       summary[u] = saldoIniziale;
       summary.total += saldoIniziale;
     });
 
-    // Aggiungiamo le spese registrate
     spese.forEach(s => {
       if (summary[s.utente] !== undefined) {
         summary[s.utente] += s.importo;
@@ -30,7 +31,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
       }
     });
 
-    // Calcolo del leader (chi ha speso di più inclusi i buoni iniziali)
     let leader: Utente | 'Parità' = 'Parità';
     let maxVal = -1;
     let isTied = false;
@@ -47,8 +47,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
 
     if (isTied) leader = 'Parità';
 
-    // Per il confronto, prendiamo i due principali se possibile
-    // In questa app assumiamo spesso Luca e Federica come core
     const lucaTot = summary['Luca'] || 0;
     const fedeTot = summary['Federica'] || 0;
     const diff = Math.abs(lucaTot - fedeTot);
@@ -59,7 +57,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
 
   return (
     <div className="space-y-4 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Hero Section: Leader */}
       <div className="bg-white p-6 md:p-8 rounded-[24px] md:rounded-[32px] shadow-sm border border-slate-100 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8">
           <div className="flex-1">
@@ -88,7 +85,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
                 <p className={`text-[10px] md:text-xs font-black uppercase tracking-widest ${
                   stats.leader === 'Luca' ? 'text-blue-500' : 'text-pink-500'
                 }`}>
-                  {stats.leader} HA SPESO {stats.diff.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € IN PIÙ RISPETTO A {stats.runnerUp}
+                  {stats.leader} HA SPESO {formatCurrency(stats.diff)} IN PIÙ RISPETTO A {stats.runnerUp}
                 </p>
               )}
             </div>
@@ -96,7 +93,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
           
           <div className="bg-slate-50/80 backdrop-blur-sm p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-100 min-w-[180px] md:min-w-[220px]">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">Totale Combinato</p>
-            <p className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.total.toFixed(2)}</p>
+            <p className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{formatCurrency(stats.total)}</p>
             <div className="mt-3 w-full bg-slate-200 h-1.5 rounded-full overflow-hidden flex">
               <div 
                 className="bg-blue-500 h-full transition-all duration-1000" 
@@ -111,32 +108,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ spese, settings }) => {
         </div>
       </div>
 
-      {/* Totals Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        {/* Luca Card */}
         <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-[28px] shadow-sm border border-slate-100 flex items-center gap-4 md:gap-6 group hover:shadow-md transition-all">
           <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-50 rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600 shadow-sm transition-transform group-hover:scale-105">
             <User className="w-6 h-6 md:w-8 md:h-8" />
           </div>
           <div>
             <p className="text-blue-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5">Luca</p>
-            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.lucaTot.toFixed(2)}</p>
+            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">{formatCurrency(stats.lucaTot)}</p>
             {settings.saldiIniziali?.['Luca'] > 0 && (
-              <p className="text-[8px] text-slate-400 font-bold uppercase">(Incl. €{settings.saldiIniziali['Luca']} buoni prec.)</p>
+              <p className="text-[8px] text-slate-400 font-bold uppercase">(Incl. {formatCurrency(settings.saldiIniziali['Luca'])} buoni prec.)</p>
             )}
           </div>
         </div>
 
-        {/* Federica Card */}
         <div className="bg-white p-4 md:p-6 rounded-2xl md:rounded-[28px] shadow-sm border border-slate-100 flex items-center gap-4 md:gap-6 group hover:shadow-md transition-all">
           <div className="w-12 h-12 md:w-16 md:h-16 bg-pink-50 rounded-xl md:rounded-2xl flex items-center justify-center text-pink-600 shadow-sm transition-transform group-hover:scale-105">
             <User className="w-6 h-6 md:w-8 md:h-8" />
           </div>
           <div>
             <p className="text-pink-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5">Federica</p>
-            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">€{stats.fedeTot.toFixed(2)}</p>
+            <p className="text-xl md:text-3xl font-black text-slate-800 tracking-tight">{formatCurrency(stats.fedeTot)}</p>
             {settings.saldiIniziali?.['Federica'] > 0 && (
-              <p className="text-[8px] text-slate-400 font-bold uppercase">(Incl. €{settings.saldiIniziali['Federica']} buoni prec.)</p>
+              <p className="text-[8px] text-slate-400 font-bold uppercase">(Incl. {formatCurrency(settings.saldiIniziali['Federica'])} buoni prec.)</p>
             )}
           </div>
         </div>

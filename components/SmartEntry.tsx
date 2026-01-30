@@ -9,6 +9,10 @@ interface SmartEntryProps {
   settings: AppSettings;
 }
 
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value);
+};
+
 export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd, settings }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -76,17 +80,10 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd, settings }) => {
           onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleMagicAnalysis(input)}
         />
         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          <button 
-            onClick={() => isListening ? recognitionRef.current?.stop() : recognitionRef.current?.start()}
-            className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 shadow-lg' : 'bg-white/10 hover:bg-white/20'}`}
-          >
+          <button onClick={() => isListening ? recognitionRef.current?.stop() : recognitionRef.current?.start()} className={`p-2.5 rounded-xl transition-all ${isListening ? 'bg-red-500 shadow-lg' : 'bg-white/10 hover:bg-white/20'}`}>
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
-          <button 
-            onClick={() => handleMagicAnalysis(input)} 
-            disabled={isLoading || !input.trim()}
-            className="bg-white text-indigo-700 p-2.5 rounded-xl shadow-lg disabled:opacity-50 transition-all hover:bg-indigo-50"
-          >
+          <button onClick={() => handleMagicAnalysis(input)} disabled={isLoading || !input.trim()} className="bg-white text-indigo-700 p-2.5 rounded-xl shadow-lg disabled:opacity-50 transition-all hover:bg-indigo-50">
             {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
           </button>
         </div>
@@ -111,15 +108,10 @@ export const SmartEntry: React.FC<SmartEntryProps> = ({ onAdd, settings }) => {
             </div>
             <div className="bg-black/20 p-3 rounded-xl">
               <span className="block text-[8px] opacity-50 uppercase font-black mb-1">Cifra</span>
-              <span className="font-bold">€{preview.importo?.toFixed(2) || '0.00'}</span>
+              <span className="font-bold">{formatCurrency(preview.importo || 0)}</span>
             </div>
           </div>
-          <button 
-            onClick={confirmAdd}
-            className="w-full bg-white text-indigo-700 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg"
-          >
-            Conferma
-          </button>
+          <button onClick={confirmAdd} className="w-full bg-white text-indigo-700 py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg">Conferma</button>
         </div>
       )}
     </div>

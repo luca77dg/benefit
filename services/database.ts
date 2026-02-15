@@ -6,11 +6,19 @@ const STORAGE_KEY = 'benefits_sync_data';
 const SETTINGS_KEY = 'benefits_sync_settings';
 const CONFIG_ID = 'global_config';
 
+// Recuperiamo eventuali variabili d'ambiente (es. da Vercel)
+const ENV_URL = (process.env as any).VITE_SUPABASE_URL || '';
+const ENV_KEY = (process.env as any).VITE_SUPABASE_ANON_KEY || '';
+
 const DEFAULT_SETTINGS: AppSettings = {
   utenti: ['Luca', 'Federica'],
   categorie: ['Spesa', 'Welfare', 'Benzina'],
   saldiIniziali: { 'Luca': 0, 'Federica': 0 },
-  supabase: { url: '', key: '', connected: false }
+  supabase: { 
+    url: ENV_URL, 
+    key: ENV_KEY, 
+    connected: !!(ENV_URL && ENV_KEY) 
+  }
 };
 
 let supabaseInstance: SupabaseClient | null = null;
@@ -27,7 +35,6 @@ export const db = {
     return null;
   },
 
-  // Sottoscrizione Realtime: la chiave per la velocità istantanea
   subscribeToChanges: async (onSpeseChange: () => void, onSettingsChange: () => void) => {
     const sb = await db.getSupabase();
     if (!sb) return null;
@@ -70,7 +77,6 @@ export const db = {
       creato_il: new Date().toISOString(),
     };
 
-    // Salvataggio ottimistico locale immediato
     const current = await db.getSpese();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([entry, ...current]));
 
@@ -132,21 +138,26 @@ export const db = {
 
   getSettings: async (): Promise<AppSettings> => {
     const localData = localStorage.getItem(SETTINGS_KEY);
-    const localSettings = localData ? JSON.parse(localData) : DEFAULT_SETTINGS;
+    let settings = localData ? JSON.parse(localData) : DEFAULT_SETTINGS;
+
+    // Se i settings locali non hanno supabase connesso ma abbiamo le variabili d'ambiente, usiamo quelle
+    if (!settings.supabase?.connected && ENV_URL && ENV_KEY) {
+      settings.supabase = { url: ENV_URL, key: ENV_KEY, connected: true };
+    }
 
     try {
-      if (localSettings.supabase?.connected) {
-        const sb = createClient(localSettings.supabase.url, localSettings.supabase.key);
+      if (settings.supabase?.connected) {
+        const sb = createClient(settings.supabase.url, settings.supabase.key);
         const { data, error } = await sb.from('impostazioni').select('data').eq('id', CONFIG_ID).single();
         if (!error && data) {
-          const cloudSettings = { ...data.data, supabase: localSettings.supabase };
+          const cloudSettings = { ...data.data, supabase: settings.supabase };
           localStorage.setItem(SETTINGS_KEY, JSON.stringify(cloudSettings));
           return cloudSettings;
         }
       }
     } catch (e) {}
 
-    return localSettings;
+    return settings;
   },
 
   saveSettings: async (settings: AppSettings): Promise<void> => {
@@ -187,10 +198,6 @@ export const db = {
     } catch (e) { return false; }
   },
 
-  /**
-   * Import All Data: ripristina impostazioni e spese da un oggetto di backup caricato dall'utente.
-   * Salva localmente e tenta la sincronizzazione col cloud se disponibile.
-   */
   importAllData: async (data: { settings: AppSettings, spese: Spesa[] }): Promise<void> => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(data.settings));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data.spese));

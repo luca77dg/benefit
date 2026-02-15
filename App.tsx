@@ -7,7 +7,7 @@ import { ExpenseList } from './components/ExpenseList';
 import { SmartEntry } from './components/SmartEntry';
 import { AIAssistant } from './components/AIAssistant';
 import { Settings } from './components/Settings';
-import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, ArrowUpRight, Sparkles, Settings as SettingsIcon, Cloud, CloudOff, Check, Radio } from 'lucide-react';
+import { Plus, LayoutDashboard, List, MessageSquareCode, Wallet, ArrowUpRight, Sparkles, Settings as SettingsIcon, Check } from 'lucide-react';
 
 const App: React.FC = () => {
   const [spese, setSpese] = useState<Spesa[]>([]);
@@ -134,27 +134,6 @@ const App: React.FC = () => {
     }
   };
 
-  const SyncStatus = () => (
-    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
-      isLive ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'
-    }`}>
-      {isSyncing ? (
-        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
-      ) : isLive ? (
-        <Radio className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-      ) : lastSyncSuccess ? (
-        <Cloud className="w-3.5 h-3.5 text-emerald-500" />
-      ) : (
-        <CloudOff className="w-3.5 h-3.5 text-slate-300" />
-      )}
-      <span className={`text-[9px] font-black uppercase tracking-widest ${
-        isLive ? 'text-indigo-600' : 'text-slate-500'
-      }`}>
-        {isSyncing ? 'Sync...' : isLive ? 'Instant Live' : lastSyncSuccess ? 'Cloud Attivo' : 'Offline'}
-      </span>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-24 md:pb-0 font-['Inter']">
       {/* Sidebar Navigation (Desktop only) */}
@@ -164,10 +143,6 @@ const App: React.FC = () => {
             <Wallet className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">BenefitSync</h1>
-        </div>
-
-        <div className="mb-6">
-          <SyncStatus />
         </div>
 
         <div className="flex-1 space-y-1">
@@ -216,9 +191,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <div className="hidden sm:block">
-              <SyncStatus />
-            </div>
             <button 
               onClick={handleOpenAdd}
               className="md:hidden bg-indigo-600 text-white p-3 rounded-2xl shadow-lg active:scale-90 transition-transform"
@@ -248,7 +220,14 @@ const App: React.FC = () => {
             <AIAssistant spese={spese} />
           )}
           {activeTab === 'settings' && (
-            <Settings settings={settings} onUpdate={handleUpdateSettings} onRefresh={loadData} />
+            <Settings 
+              settings={settings} 
+              onUpdate={handleUpdateSettings} 
+              onRefresh={loadData}
+              isSyncingGlobal={isSyncing}
+              isLive={isLive}
+              lastSyncSuccess={lastSyncSuccess}
+            />
           )}
         </div>
       </main>

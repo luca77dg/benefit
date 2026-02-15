@@ -1,9 +1,10 @@
+
 import React, { useState, useRef } from 'react';
 import { AppSettings, SupabaseConfig, Spesa } from '../types';
 import { 
   UserPlus, Trash2, CheckCircle2, Pencil, Cloud, 
   RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
-  Smartphone, Share, Plus, ShieldCheck
+  Smartphone, Share, Plus, ShieldCheck, Radio, CloudOff
 } from 'lucide-react';
 import { db } from '../services/database';
 
@@ -11,16 +12,28 @@ interface SettingsProps {
   settings: AppSettings;
   onUpdate: (newSettings: AppSettings) => void;
   onRefresh: () => void;
+  isSyncingGlobal?: boolean;
+  isLive?: boolean;
+  lastSyncSuccess?: boolean;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefresh }) => {
+export const Settings: React.FC<SettingsProps> = ({ 
+  settings, 
+  onUpdate, 
+  onRefresh,
+  isSyncingGlobal,
+  isLive,
+  lastSyncSuccess
+}) => {
   const [newUtente, setNewUtente] = useState('');
   const [newCategoria, setNewCategoria] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingLocal, setIsSyncingLocal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [editingUtente, setEditingUtente] = useState<{ original: string, current: string } | null>(null);
   const [editingCategoria, setEditingCategoria] = useState<{ original: string, current: string } | null>(null);
+
+  const isSyncing = isSyncingGlobal || isSyncingLocal;
 
   const addUtente = () => {
     if (newUtente.trim() && !settings.utenti.includes(newUtente.trim())) {
@@ -84,7 +97,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
   };
 
   const handleForceSync = async () => {
-    setIsSyncing(true);
+    setIsSyncingLocal(true);
     try {
       const success = await db.syncLocalToCloud();
       if (success) {
@@ -93,7 +106,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
     } catch (e) {
       alert("Errore durante la sincronizzazione.");
     } finally {
-      setIsSyncing(false);
+      setIsSyncingLocal(false);
     }
   };
 
@@ -135,13 +148,24 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 max-w-4xl mx-auto">
       
-      {/* 1. Stato Cloud (Nuova Versione Minimal) */}
-      <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+      {/* 1. Stato Cloud (Sezione Unificata con il Badge richiesto) */}
+      <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="flex items-center gap-5">
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center relative ${settings.supabase?.connected ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
-            <Cloud className={`w-7 h-7 ${isSyncing ? 'animate-pulse' : ''}`} />
-            {settings.supabase?.connected && (
-              <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-4 border-white">
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center relative transition-all duration-500 ${
+            isLive ? 'bg-indigo-50 text-indigo-600' : 
+            lastSyncSuccess ? 'bg-emerald-50 text-emerald-600' : 
+            'bg-slate-50 text-slate-300'
+          }`}>
+            {isLive ? (
+              <Radio className="w-7 h-7 animate-pulse" />
+            ) : lastSyncSuccess ? (
+              <Cloud className="w-7 h-7" />
+            ) : (
+              <CloudOff className="w-7 h-7" />
+            )}
+            
+            {(lastSyncSuccess || isLive) && (
+              <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-4 border-white shadow-sm">
                 <CheckCircle2 className="w-3 h-3" />
               </div>
             )}
@@ -149,14 +173,20 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Sincronizzazione Cloud</h3>
-              {settings.supabase?.connected && (
-                <span className="bg-emerald-100 text-emerald-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Attiva</span>
-              )}
+              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${
+                isLive ? 'bg-indigo-100 text-indigo-700' : 
+                lastSyncSuccess ? 'bg-emerald-100 text-emerald-700' : 
+                'bg-slate-100 text-slate-500'
+              }`}>
+                {isSyncing ? 'Sincronizzazione...' : isLive ? 'Instant Live' : lastSyncSuccess ? 'Cloud Attivo' : 'Offline'}
+              </div>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-              {settings.supabase?.connected 
-                ? 'I tuoi dati sono protetti e sincronizzati in tempo reale.' 
-                : 'Modalità locale: i dati sono salvati solo su questo dispositivo.'}
+              {isLive 
+                ? 'Connessione bidirezionale istantanea attiva.' 
+                : lastSyncSuccess 
+                ? 'I tuoi dati sono protetti e salvati nel cloud.' 
+                : 'Modalità locale: i dati sono salvati solo su questo browser.'}
             </p>
           </div>
         </div>
@@ -168,7 +198,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
             className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-900 text-white px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all shadow-lg shadow-slate-200"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Sincronizzazione...' : 'Sincronizza Ora'}
+            {isSyncing ? 'Aggiornamento...' : 'Sincronizza Ora'}
           </button>
         )}
       </div>

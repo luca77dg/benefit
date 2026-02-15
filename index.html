@@ -9,13 +9,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="BenefitSync">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#4f46e5">
     
-    <!-- Link al Manifest (Fondamentale per iOS/Android) -->
-    <link rel="manifest" href="manifest.json">
+    <!-- Link al Manifest fisico (Standard PWA) -->
+    <link rel="manifest" href="/manifest.json">
     
-    <!-- Apple Touch Icon - Usiamo un SVG codificato in Base64 per massima compatibilità con Safari -->
-    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iIzRmNDZlNSIvPjxwYXRoIGQ9Ik00NSA3NWMwLTYgNS0xMSAxMS0xMWg2OGM2IDAgMTEgNSAxMSAxMXYzNWMwIDYtNSAxMS0xMSAxMUg1NmMtNiAwLTExLTUtMTEtMTF2LTM1eiIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMTUiIGN5PSI5MiIgcj0iNSIgZmlsbD0iIzRmNDZlNSIvPjxwYXRoIGQ9Ik0xMzUgMzBsMTUgMGwwIDE1TTE1MCAzMGwtMjAgMjAiIHN0cm9rZT0iIzEwYjk4MSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz48L3N2Zz4=">
+    <!-- Apple Touch Icon - Design Brand Indigo/White/Emerald (Base64 verificata per Safari) -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgcng9IjQwIiBmaWxsPSIjNGY0NmU1Ii8+PHBhdGggZD0iTTUwIDc1YzAtNiA1LTExIDExLTExaDU4YzYgMCAxMSA1IDExIDExdjMwYzAgNi01IDExLTExIDExSDYxYy02IDAtMTEtNS0xMS0xMXYtMzB6IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI1IiBmaWxsPSIjNGY0NmU1Ii8+PHBhdGggZD0iTTE0MCAzMGwxNSAwbDAgMTVNMTU1IDMwbC0yMCAyMCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -29,11 +29,7 @@
         }
         #root { min-height: 100vh; }
         ::-webkit-scrollbar { display: none; }
-        
-        /* Previene il refresh al trascinamento su iOS */
-        html, body {
-          overscroll-behavior-y: contain;
-        }
+        html, body { overscroll-behavior-y: contain; }
     </style>
 <script type="importmap">
 {

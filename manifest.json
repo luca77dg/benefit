@@ -1,13 +1,13 @@
 {
   "name": "BenefitSync IA",
   "short_name": "BenefitSync",
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iIzRmNDZlNSIvPjxwYXRoIGQ9Ik00NSA3NWMwLTYgNS0xMSAxMS0xMWg2OGM2IDAgMTEgNSAxMSAxMXYzNWMwIDYtNSAxMS0xMSAxMUg1NmMtNiAwLTExLTUtMTEtMTF2LTM1eiIgZmlsbD0id2hpdGUiLz48Y2lyY2xlIGN4PSIxMTUiIGN5PSI5MiIgcj0iNSIgZmlsbD0iIzRmNDZlNSIvPjxwYXRoIGQ9Ik0xMzUgMzBsMTUgMGwwIDE1TTE1MCAzMGwtMjAgMjAiIHN0cm9rZT0iIzEwYjk4MSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbGw9Im5vbmUiLz48L3N2Zz4=",
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgcng9IjQwIiBmaWxsPSIjNGY0NmU1Ii8+PHBhdGggZD0iTTUwIDc1YzAtNiA1LTExIDExLTExaDU4YzYgMCAxMSA1IDExIDExdjMwYzAgNi01IDExLTExIDExSDYxYy02IDAtMTEtNS0xMS0xMXYtMzB6IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjExNSIgY3k9IjkwIiByPSI1IiBmaWxsPSIjNGY0NmU1Ii8+PHBhdGggZD0iTTE0MCAzMGwxNSAwbDAgMTVNMTU1IDMwbC0yMCAyMCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==",
       "sizes": "180x180",
       "type": "image/svg+xml",
       "purpose": "any"

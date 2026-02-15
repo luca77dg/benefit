@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { AppSettings, SupabaseConfig, Spesa } from '../types';
 import { 
-  UserPlus, Trash2, CheckCircle2, Pencil, Cloud, Copy, 
+  UserPlus, Trash2, CheckCircle2, Pencil, Cloud, 
   RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
-  AlertTriangle, Smartphone, Share, Sparkles, HelpCircle, ExternalLink, Key, Zap, Plus, Info
+  Smartphone, Share, Plus, ShieldCheck
 } from 'lucide-react';
 import { db } from '../services/database';
 
@@ -17,34 +17,10 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
   const [newUtente, setNewUtente] = useState('');
   const [newCategoria, setNewCategoria] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [showGuide, setShowGuide] = useState(false);
-  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [editingUtente, setEditingUtente] = useState<{ original: string, current: string } | null>(null);
   const [editingCategoria, setEditingCategoria] = useState<{ original: string, current: string } | null>(null);
-
-  const [tempSupabase, setTempSupabase] = useState<SupabaseConfig>(
-    settings.supabase || { url: '', key: '', connected: false }
-  );
-
-  const SQL_SCRIPT = `-- SQL SCHEMA PER BENEFITSYNC
-CREATE TABLE IF NOT EXISTS public.spese (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, creato_il TIMESTAMP WITH TIME ZONE DEFAULT now(), utente TEXT NOT NULL, tipologia TEXT NOT NULL, importo DECIMAL(10, 2) NOT NULL, data DATE NOT NULL DEFAULT CURRENT_DATE, note TEXT);
-CREATE TABLE IF NOT EXISTS public.impostazioni (id TEXT PRIMARY KEY, data JSONB NOT NULL, aggiornato_il TIMESTAMP WITH TIME ZONE DEFAULT now());
-ALTER TABLE public.spese ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.impostazioni ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Accesso totale spese" ON public.spese;
-CREATE POLICY "Accesso totale spese" ON public.spese FOR ALL TO anon USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Accesso totale impostazioni" ON public.impostazioni;
-CREATE POLICY "Accesso totale impostazioni" ON public.impostazioni FOR ALL TO anon USING (true) WITH CHECK (true);
-DROP PUBLICATION IF EXISTS supabase_realtime;
-CREATE PUBLICATION supabase_realtime FOR TABLE spese, impostazioni;`;
-
-  const copySqlToClipboard = () => {
-    navigator.clipboard.writeText(SQL_SCRIPT);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const addUtente = () => {
     if (newUtente.trim() && !settings.utenti.includes(newUtente.trim())) {
@@ -107,17 +83,15 @@ CREATE PUBLICATION supabase_realtime FOR TABLE spese, impostazioni;`;
     }
   };
 
-  const handleConnectSupabase = async () => {
+  const handleForceSync = async () => {
     setIsSyncing(true);
-    const newSettings = { ...settings, supabase: { ...tempSupabase, connected: true } };
-    await db.saveSettings(newSettings);
-    onUpdate(newSettings);
     try {
-      await db.getSpese();
-      await db.syncLocalToCloud();
-      alert("Database collegato e dati sincronizzati!");
+      const success = await db.syncLocalToCloud();
+      if (success) {
+        onRefresh();
+      }
     } catch (e) {
-      alert("Errore di connessione. Controlla URL e Key.");
+      alert("Errore durante la sincronizzazione.");
     } finally {
       setIsSyncing(false);
     }
@@ -161,98 +135,48 @@ CREATE PUBLICATION supabase_realtime FOR TABLE spese, impostazioni;`;
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 max-w-4xl mx-auto">
       
-      {/* 1. Sincronizzazione Cloud */}
-      <div className="bg-indigo-900 text-white p-6 md:p-10 rounded-[32px] border border-white/10 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-10"><Cloud className="w-32 h-32" /></div>
-        
-        <div className="flex justify-between items-start mb-8 relative z-10">
-          <div>
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-1 flex items-center gap-2">
-              <Cloud className="w-4 h-4" /> Sincronizzazione Cloud
-            </h3>
-            <p className="text-sm text-indigo-100/70 font-medium">Condividi le spese in tempo reale tra dispositivi.</p>
-          </div>
-          <button 
-            onClick={() => setShowGuide(!showGuide)}
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-          >
-            <HelpCircle className="w-3.5 h-3.5" /> {showGuide ? 'Chiudi Guida' : 'Come fare?'}
-          </button>
-        </div>
-
-        {showGuide && (
-          <div className="mb-8 p-6 bg-white/5 border border-white/10 rounded-2xl space-y-4 animate-in zoom-in-95">
-            <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300">Guida Rapida Supabase</h4>
-            <ol className="text-xs space-y-3 text-indigo-100/80">
-              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">1</span> <span>Vai su <strong>Supabase</strong> e crea un nuovo progetto.</span></li>
-              <li className="flex gap-3">
-                <span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">2</span> 
-                <div className="flex-1">
-                  <span>Apri l'<strong>SQL Editor</strong> e incolla il codice dello schema.</span>
-                  <button onClick={copySqlToClipboard} className={`mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'}`}>
-                    <Copy className="w-3.5 h-3.5" /> {copied ? 'Copiato!' : 'Copia Codice SQL'}
-                  </button>
-                  <div className="mt-3 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                    <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-amber-100/80 leading-relaxed italic">
-                      Nota: Se Supabase mostra un avviso di <strong>"Destructive Operation"</strong>, clicca tranquillamente su <strong>"Run this query"</strong>. È necessario per pulire le vecchie regole di sicurezza.
-                    </p>
-                  </div>
-                </div>
-              </li>
-              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">3</span> <span>Incolla qui sotto l'<strong>URL</strong> e la <strong>Anon Key</strong> (sez. API).</span></li>
-            </ol>
-            <a href="https://supabase.com/dashboard" target="_blank" className="inline-flex items-center gap-2 text-indigo-300 hover:text-white font-bold text-[10px] uppercase mt-2">
-              Vai al Dashboard <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-        )}
-
-        <div className="space-y-4 relative z-10">
-          <div className="relative group">
-            <Database className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
-            <input type="text" placeholder="Supabase Project URL" value={tempSupabase.url} onChange={(e) => setTempSupabase({...tempSupabase, url: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-2xl pl-12 pr-5 py-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-white/20" />
-          </div>
-          <div className="relative group">
-            <Key className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
-            <input type="password" placeholder="Supabase Anon Key" value={tempSupabase.key} onChange={(e) => setTempSupabase({...tempSupabase, key: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-2xl pl-12 pr-5 py-4 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-white/20" />
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button 
-              onClick={handleConnectSupabase} 
-              disabled={isSyncing} 
-              className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-xl transition-all active:scale-95 ${
-                settings.supabase?.connected ? 'bg-emerald-500 text-white' : 'bg-white text-indigo-900'
-              }`}
-            >
-              {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : settings.supabase?.connected ? <CheckCircle2 className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
-              {settings.supabase?.connected ? 'Configurazione Salvata' : 'Collega e Attiva Cloud'}
-            </button>
-            
+      {/* 1. Stato Cloud (Nuova Versione Minimal) */}
+      <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="flex items-center gap-5">
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center relative ${settings.supabase?.connected ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
+            <Cloud className={`w-7 h-7 ${isSyncing ? 'animate-pulse' : ''}`} />
             {settings.supabase?.connected && (
-              <button 
-                onClick={() => {
-                  setIsSyncing(true);
-                  db.syncLocalToCloud().then(s => {
-                    setIsSyncing(false);
-                    alert(s ? "Sincronizzazione completata!" : "Errore durante la sincronizzazione.");
-                  });
-                }} 
-                className="bg-indigo-700/50 hover:bg-indigo-700 text-white px-6 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest border border-white/10 transition-all flex items-center justify-center gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                Forza Sincro
-              </button>
+              <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-4 border-white">
+                <CheckCircle2 className="w-3 h-3" />
+              </div>
             )}
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Sincronizzazione Cloud</h3>
+              {settings.supabase?.connected && (
+                <span className="bg-emerald-100 text-emerald-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">Attiva</span>
+              )}
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              {settings.supabase?.connected 
+                ? 'I tuoi dati sono protetti e sincronizzati in tempo reale.' 
+                : 'Modalità locale: i dati sono salvati solo su questo dispositivo.'}
+            </p>
+          </div>
         </div>
+        
+        {settings.supabase?.connected && (
+          <button 
+            onClick={handleForceSync} 
+            disabled={isSyncing}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-900 text-white px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all shadow-lg shadow-slate-200"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Sincronizzazione...' : 'Sincronizza Ora'}
+          </button>
+        )}
       </div>
 
       {/* 2. Gestione Utenti e Saldi */}
       <div className="bg-white p-6 md:p-10 rounded-[32px] border border-slate-100 shadow-sm relative overflow-hidden">
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
-          <UserPlus className="w-4 h-4 text-indigo-500" /> Utenti e Saldi Iniziali
+          <ShieldCheck className="w-4 h-4 text-indigo-500" /> Utenti e Saldi Iniziali
         </h3>
         
         <div className="relative mb-8">

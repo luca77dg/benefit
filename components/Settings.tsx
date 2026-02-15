@@ -3,7 +3,7 @@ import { AppSettings, SupabaseConfig, Spesa } from '../types';
 import { 
   UserPlus, Trash2, CheckCircle2, Pencil, Cloud, Copy, 
   RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
-  AlertTriangle, Smartphone, Share, Sparkles, HelpCircle, ExternalLink, Key, Zap, Plus
+  AlertTriangle, Smartphone, Share, Sparkles, HelpCircle, ExternalLink, Key, Zap, Plus, Info
 } from 'lucide-react';
 import { db } from '../services/database';
 
@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS public.spese (id UUID DEFAULT gen_random_uuid() PRIMA
 CREATE TABLE IF NOT EXISTS public.impostazioni (id TEXT PRIMARY KEY, data JSONB NOT NULL, aggiornato_il TIMESTAMP WITH TIME ZONE DEFAULT now());
 ALTER TABLE public.spese ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.impostazioni ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Accesso totale spese" ON public.spese;
 CREATE POLICY "Accesso totale spese" ON public.spese FOR ALL TO anon USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Accesso totale impostazioni" ON public.impostazioni;
 CREATE POLICY "Accesso totale impostazioni" ON public.impostazioni FOR ALL TO anon USING (true) WITH CHECK (true);
 DROP PUBLICATION IF EXISTS supabase_realtime;
 CREATE PUBLICATION supabase_realtime FOR TABLE spese, impostazioni;`;
@@ -190,6 +192,12 @@ CREATE PUBLICATION supabase_realtime FOR TABLE spese, impostazioni;`;
                   <button onClick={copySqlToClipboard} className={`mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'}`}>
                     <Copy className="w-3.5 h-3.5" /> {copied ? 'Copiato!' : 'Copia Codice SQL'}
                   </button>
+                  <div className="mt-3 flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-amber-100/80 leading-relaxed italic">
+                      Nota: Se Supabase mostra un avviso di <strong>"Destructive Operation"</strong>, clicca tranquillamente su <strong>"Run this query"</strong>. È necessario per pulire le vecchie regole di sicurezza.
+                    </p>
+                  </div>
                 </div>
               </li>
               <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">3</span> <span>Incolla qui sotto l'<strong>URL</strong> e la <strong>Anon Key</strong> (sez. API).</span></li>

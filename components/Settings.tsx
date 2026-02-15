@@ -1,10 +1,9 @@
-
 import React, { useState, useRef } from 'react';
 import { AppSettings, SupabaseConfig, Spesa } from '../types';
 import { 
   UserPlus, Trash2, CheckCircle2, Pencil, Cloud, Copy, 
   RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
-  AlertTriangle, Smartphone, Share, Sparkles, HelpCircle, ExternalLink, Key, Zap
+  AlertTriangle, Smartphone, Share, Sparkles, HelpCircle, ExternalLink, Key, Zap, Plus
 } from 'lucide-react';
 import { db } from '../services/database';
 
@@ -17,9 +16,9 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefresh }) => {
   const [newUtente, setNewUtente] = useState('');
   const [newCategoria, setNewCategoria] = useState('');
-  const [syncCode, setSyncCode] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [editingUtente, setEditingUtente] = useState<{ original: string, current: string } | null>(null);
@@ -28,6 +27,22 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
   const [tempSupabase, setTempSupabase] = useState<SupabaseConfig>(
     settings.supabase || { url: '', key: '', connected: false }
   );
+
+  const SQL_SCRIPT = `-- SQL SCHEMA PER BENEFITSYNC
+CREATE TABLE IF NOT EXISTS public.spese (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, creato_il TIMESTAMP WITH TIME ZONE DEFAULT now(), utente TEXT NOT NULL, tipologia TEXT NOT NULL, importo DECIMAL(10, 2) NOT NULL, data DATE NOT NULL DEFAULT CURRENT_DATE, note TEXT);
+CREATE TABLE IF NOT EXISTS public.impostazioni (id TEXT PRIMARY KEY, data JSONB NOT NULL, aggiornato_il TIMESTAMP WITH TIME ZONE DEFAULT now());
+ALTER TABLE public.spese ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.impostazioni ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Accesso totale spese" ON public.spese FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Accesso totale impostazioni" ON public.impostazioni FOR ALL TO anon USING (true) WITH CHECK (true);
+DROP PUBLICATION IF EXISTS supabase_realtime;
+CREATE PUBLICATION supabase_realtime FOR TABLE spese, impostazioni;`;
+
+  const copySqlToClipboard = () => {
+    navigator.clipboard.writeText(SQL_SCRIPT);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const addUtente = () => {
     if (newUtente.trim() && !settings.utenti.includes(newUtente.trim())) {
@@ -97,7 +112,6 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
     onUpdate(newSettings);
     try {
       await db.getSpese();
-      // Dopo la connessione, forziamo una sincronizzazione dei saldi iniziali
       await db.syncLocalToCloud();
       alert("Database collegato e dati sincronizzati!");
     } catch (e) {
@@ -169,9 +183,16 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
             <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300">Guida Rapida Supabase</h4>
             <ol className="text-xs space-y-3 text-indigo-100/80">
               <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">1</span> <span>Vai su <strong>Supabase</strong> e crea un nuovo progetto.</span></li>
-              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">2</span> <span>Apri l'<strong>SQL Editor</strong> e incolla lo schema (tasto destro -> incolla).</span></li>
-              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">3</span> <span>Vai in <strong>Database -> Replication</strong> e abilita il Realtime per le tabelle.</span></li>
-              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">4</span> <span>Incolla qui sotto l'<strong>URL</strong> e la <strong>Anon Key</strong> (sez. API).</span></li>
+              <li className="flex gap-3">
+                <span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">2</span> 
+                <div className="flex-1">
+                  <span>Apri l'<strong>SQL Editor</strong> e incolla il codice dello schema.</span>
+                  <button onClick={copySqlToClipboard} className={`mt-2 flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30'}`}>
+                    <Copy className="w-3.5 h-3.5" /> {copied ? 'Copiato!' : 'Copia Codice SQL'}
+                  </button>
+                </div>
+              </li>
+              <li className="flex gap-3"><span className="w-5 h-5 bg-indigo-500/30 rounded flex items-center justify-center shrink-0">3</span> <span>Incolla qui sotto l'<strong>URL</strong> e la <strong>Anon Key</strong> (sez. API).</span></li>
             </ol>
             <a href="https://supabase.com/dashboard" target="_blank" className="inline-flex items-center gap-2 text-indigo-300 hover:text-white font-bold text-[10px] uppercase mt-2">
               Vai al Dashboard <ExternalLink className="w-3 h-3" />
@@ -198,7 +219,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onUpdate, onRefres
               }`}
             >
               {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : settings.supabase?.connected ? <CheckCircle2 className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
-              {settings.supabase?.connected ? 'Configurazione Salvata' : 'Collega e Attiva Realtime'}
+              {settings.supabase?.connected ? 'Configurazione Salvata' : 'Collega e Attiva Cloud'}
             </button>
             
             {settings.supabase?.connected && (

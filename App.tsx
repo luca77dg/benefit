@@ -51,7 +51,7 @@ const App: React.FC = () => {
     const data = await db.getSpese();
     setSpese(data);
     const sb = await db.getSupabase();
-    setLastSyncSuccess(!!sb && currentSettings.supabase?.connected);
+    setLastSyncSuccess(!!(!!sb && currentSettings.supabase?.connected));
     setIsSyncing(false);
   };
 

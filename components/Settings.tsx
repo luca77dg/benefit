@@ -4,7 +4,8 @@ import { AppSettings, SupabaseConfig, Spesa } from '../types';
 import { 
   UserPlus, Trash2, CheckCircle2, Pencil, Cloud, 
   RefreshCw, Tag, FolderPlus, Download, Upload, Database, 
-  Smartphone, Share, Plus, ShieldCheck, Radio, CloudOff
+  Smartphone, Share, Plus, ShieldCheck, Radio, CloudOff,
+  FileSpreadsheet
 } from 'lucide-react';
 import { db } from '../services/database';
 
@@ -118,6 +119,41 @@ export const Settings: React.FC<SettingsProps> = ({
     const a = document.createElement('a');
     a.href = url;
     a.download = `benefitsync_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = async () => {
+    const spese = await db.getSpese();
+    if (spese.length === 0) {
+      alert("Nessuna spesa da esportare.");
+      return;
+    }
+
+    // CSV Headers
+    const headers = ["Data", "Utente", "Tipologia", "Importo", "Note"];
+    
+    // CSV Rows
+    const rows = spese.map(s => [
+      s.data,
+      s.utente,
+      s.tipologia,
+      s.importo.toString().replace('.', ','),
+      (s.note || "").replace(/"/g, '""')
+    ]);
+
+    const csvContent = [
+      headers.join(";"),
+      ...rows.map(r => r.map(cell => `"${cell}"`).join(";"))
+    ].join("\n");
+
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `benefitsync_export_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -322,6 +358,10 @@ export const Settings: React.FC<SettingsProps> = ({
             <button onClick={handleExport} className="flex-1 bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col items-center gap-2 transition-all">
               <Download className="w-6 h-6 text-indigo-400" />
               <span className="text-[9px] font-black uppercase">Backup</span>
+            </button>
+            <button onClick={handleExportCSV} className="flex-1 bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col items-center gap-2 transition-all">
+              <FileSpreadsheet className="w-6 h-6 text-blue-400" />
+              <span className="text-[9px] font-black uppercase">CSV</span>
             </button>
             <button onClick={handleImportClick} className="flex-1 bg-white/10 hover:bg-white/20 p-4 rounded-2xl flex flex-col items-center gap-2 transition-all">
               <Upload className="w-6 h-6 text-emerald-400" />
